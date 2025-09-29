@@ -1,0 +1,21 @@
+{
+  "name": "webgpu-galaxy-simulator",
+  "version": "1.0.0",
+  "description": "",
+  "main": "./src/GalaxySimulator.ts",
+  "scripts": {
+    "build": "webpack --mode development",
+    "prod": "webpack --mode production",
+    "dev": "webpack serve --mode production"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@webgpu/types": "^0.1.64",
+    "raw-loader": "^4.0.2",
+    "ts-loader": "^9.5.2",
+    "typescript": "^5.8.3",
+    "webpack": "^5.100.2",
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.2"
+  }
+}

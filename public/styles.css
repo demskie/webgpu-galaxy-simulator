@@ -1,0 +1,405 @@
+fieldset {
+	border: 2px solid white;
+	margin: 0 15px 5px 15px;
+	background-color: #000000;
+}
+
+h3 {
+	margin-top: 5px;
+	margin-bottom: 5px;
+	font-family: sans-serif;
+	color: #eeeeee;
+}
+
+body {
+	background-color: #000000;
+	color: #bbbbcc;
+	font-family: sans-serif;
+	font-size: 10pt;
+	font-weight: 100;
+}
+
+canvas {
+	border: 2px solid white;
+	width: 100%;
+	height: auto;
+	aspect-ratio: 1;
+	display: block;
+}
+
+div.slider {
+	margin-top: 5px;
+}
+
+div.checkbox {
+	margin-top: 10px;
+}
+
+input[type="range"] {
+	width: 240px;
+}
+
+input[type="range"]:disabled {
+	cursor: not-allowed;
+	opacity: 0.5;
+}
+
+input[type="checkbox"] {
+	margin-right: 8px;
+	scale: 1.2;
+}
+
+label {
+	color: #eee;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+}
+
+button {
+	padding: 4px 8px;
+	border: 1px solid #666;
+	background-color: #444;
+	color: #eee;
+	border-radius: 3px;
+	font-size: 8pt;
+	font-family: sans-serif;
+	cursor: pointer;
+	transition: background-color 0.2s;
+}
+
+button:hover {
+	background-color: #555;
+}
+
+button:active {
+	background-color: #333;
+}
+
+select {
+	padding: 4px 8px;
+	border: 1px solid #666;
+	background-color: #444;
+	color: #eee;
+	border-radius: 3px;
+	font-size: 8pt;
+	font-family: sans-serif;
+	cursor: pointer;
+	width: 100%;
+	max-width: 360px;
+}
+
+select:hover {
+	background-color: #555;
+}
+
+select:focus {
+	outline: none;
+	background-color: #555;
+	border-color: #888;
+}
+
+select option {
+	background-color: #444;
+	color: #eee;
+}
+
+/* Color-coded buttons */
+#saveSelectedBtn {
+	background-color: #2563eb;
+	border-color: #1d4ed8;
+	color: #fff;
+}
+
+#saveSelectedBtn:hover {
+	background-color: #1d4ed8;
+}
+
+#saveSelectedBtn:active {
+	background-color: #1e40af;
+}
+
+#saveSelectedBtn:disabled {
+	background-color: #6b7280;
+	border-color: #6b7280;
+	color: #9ca3af;
+	cursor: not-allowed;
+	opacity: 0.5;
+}
+
+#saveSelectedBtn:disabled:hover {
+	background-color: #6b7280;
+}
+
+#resetSelectedBtn {
+	background-color: #6b7280;
+	border-color: #4b5563;
+	color: #fff;
+}
+
+#resetSelectedBtn:hover {
+	background-color: #4b5563;
+}
+
+#resetSelectedBtn:active {
+	background-color: #374151;
+}
+
+#resetSelectedBtn:disabled {
+	background-color: #9ca3af;
+	border-color: #9ca3af;
+	color: #d1d5db;
+	cursor: not-allowed;
+	opacity: 0.5;
+}
+
+#resetSelectedBtn:disabled:hover {
+	background-color: #9ca3af;
+}
+
+#createPresetBtn {
+	background-color: #16a34a;
+	border-color: #15803d;
+	color: #fff;
+}
+
+#createPresetBtn:hover {
+	background-color: #15803d;
+}
+
+#createPresetBtn:active {
+	background-color: #166534;
+}
+
+#renamePresetBtn {
+	background-color: #ea580c;
+	border-color: #c2410c;
+	color: #fff;
+}
+
+#renamePresetBtn:hover {
+	background-color: #c2410c;
+}
+
+#renamePresetBtn:active {
+	background-color: #9a3412;
+}
+
+#deletePresetBtn {
+	background-color: #dc2626;
+	border-color: #b91c1c;
+	color: #fff;
+}
+
+#deletePresetBtn:hover {
+	background-color: #b91c1c;
+}
+
+#deletePresetBtn:active {
+	background-color: #991b1b;
+}
+
+#exportPresetBtn {
+	background-color: #7c3aed;
+	border-color: #6d28d9;
+	color: #fff;
+}
+
+#exportPresetBtn:hover {
+	background-color: #6d28d9;
+}
+
+#exportPresetBtn:active {
+	background-color: #5b21b6;
+}
+
+.container {
+	min-height: 100vh;
+	display: flex;
+	padding: 20px;
+	box-sizing: border-box;
+}
+
+.main-content {
+	display: flex;
+	align-items: stretch;
+	gap: 15px;
+	width: 100%;
+	height: calc(100vh - 40px);
+}
+
+.canvas-section {
+	flex: 0 0 auto;
+	min-width: 360px;
+	height: 100%;
+	position: relative;
+}
+
+.canvas-wrapper {
+	height: 100%;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+
+.canvas-container {
+	position: relative;
+	width: min(calc(100vh - 40px), calc(100vw - 420px));
+	height: min(calc(100vh - 40px), calc(100vw - 420px));
+	max-width: calc(100vh - 40px);
+	max-height: calc(100vh - 40px);
+	min-width: 300px;
+	min-height: 300px;
+}
+
+.controls-section {
+	flex: 1;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	align-content: flex-start;
+	align-items: flex-start;
+	overflow-y: auto;
+	min-width: 360px;
+	height: 100%;
+}
+
+.controls-column {
+	flex: 1 1 360px;
+	min-width: 360px;
+	max-width: 360px;
+	display: flex;
+	flex-direction: column;
+}
+
+.controls-column form {
+	margin: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.controls-column fieldset {
+	margin: 0;
+}
+
+.controls-column fieldset:last-child {
+	margin-bottom: 0;
+}
+
+#pixelColorDisplay {
+	border-radius: 3px;
+	padding: 8px;
+	margin-top: 10px;
+	font-family: monospace;
+	font-size: 10pt;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+#pixelColorDisplay .color-swatch {
+	display: inline-block;
+	width: 20px;
+	height: 20px;
+	border: 1px solid #888;
+	vertical-align: middle;
+	flex-shrink: 0;
+}
+
+#pixelColorDisplay .color-text {
+	flex: 1;
+	min-width: 120px;
+}
+
+#pixelColorDisplay .fps-text {
+	color: #aaffaa;
+	font-weight: bold;
+	min-width: 60px;
+}
+
+#timingDisplay {
+	border-radius: 3px;
+	padding: 8px;
+	margin-top: 5px;
+	font-family: monospace;
+	font-size: 9pt;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	background-color: #111;
+	border: 1px solid #333;
+}
+
+#timingDisplay .timing-text {
+	min-width: 70px;
+	padding: 2px 4px;
+	border-radius: 2px;
+}
+
+#timingDisplay .cpu-time {
+	color: #ffaa88;
+	background-color: #331100;
+}
+
+#timingDisplay .gpu-time {
+	color: #88aaff;
+	background-color: #001133;
+	font-weight: bold;
+}
+
+#timingDisplay .stars-time {
+	color: #ffffaa;
+	background-color: #333300;
+}
+
+#timingDisplay .post-time {
+	color: #aaffaa;
+	background-color: #003300;
+}
+
+#timingDisplay .vram-time {
+	color: #ffaaff;
+	background-color: #330033;
+}
+
+#timingDisplay .timing-line-break {
+	flex-basis: 100%;
+	height: 0;
+}
+
+.advanced-option {
+	overflow: hidden;
+}
+
+.advanced-option.hidden {
+	opacity: 0;
+	max-height: 0;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	pointer-events: none;
+	display: none;
+}
+
+#advancedToggle {
+	margin-top: 10px;
+	margin-bottom: 5px;
+	padding: 8px;
+	background-color: #111;
+	border: 1px solid #333;
+	border-radius: 3px;
+}
+
+#advancedToggle label {
+	color: #aaa;
+	font-size: 10pt;
+	display: flex;
+	align-items: center;
+	cursor: pointer;
+}
+
+#advancedToggle input[type="checkbox"] {
+	margin-right: 6px;
+	scale: 1;
+}
