@@ -2,5 +2,4 @@ debug.log
 node_modules/*
 public/galaxy-simulator-bundle.js
 public/galaxy-simulator-bundle.js.map
-package-lock.json
 .DS_Store
