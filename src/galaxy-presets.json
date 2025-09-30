@@ -52,7 +52,7 @@
     "temporalFrame": 0,
     "brightStarBrightness": 1,
     "maxFrameRate": 30,
-    "maxOverdraw": 384,
+    "maxOverdraw": 4096,
     "time": 0
   },
   "Subtle Blue Spiral": {
@@ -108,7 +108,7 @@
     "temporalFrame": 1,
     "brightStarBrightness": 1,
     "maxFrameRate": 30,
-    "maxOverdraw": 400,
+    "maxOverdraw": 4096,
     "time": 0
   },
   "Red Eye": {
@@ -164,7 +164,7 @@
     "temporalFrame": 0,
     "brightStarBrightness": 1,
     "maxFrameRate": 30,
-    "maxOverdraw": 428,
+    "maxOverdraw": 4096,
     "time": 0
   },
   "Nine Spirals": {
@@ -220,7 +220,7 @@
     "temporalFrame": 3,
     "brightStarBrightness": 1,
     "maxFrameRate": 30,
-    "maxOverdraw": 400,
+    "maxOverdraw": 4096,
     "time": 0
   },
   "Standard Galaxy": {
@@ -276,7 +276,7 @@
     "temporalFrame": 2,
     "brightStarBrightness": 1,
     "maxFrameRate": 30,
-    "maxOverdraw": 400,
+    "maxOverdraw": 4096,
     "time": 0
   },
   "Flower": {
@@ -332,7 +332,7 @@
     "temporalFrame": 0,
     "brightStarBrightness": 1,
     "maxFrameRate": 120,
-    "maxOverdraw": 400,
+    "maxOverdraw": 4096,
     "time": 0
   }
 }
