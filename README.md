@@ -1,6 +1,6 @@
 # WebGPU Galaxy Simulator
 
-Interactive, GPU-accelerated galaxy renderer built with TypeScript and WebGPU. Tweak astrophysical and rendering parameters live, explore presets, and profile performance.
+An interactive GPU-accelerated galaxy simulator built with TypeScript and WebGPU. Tweak astrophysical and rendering parameters live, explore presets, and profile performance.
 
 ## Features
 
@@ -14,7 +14,7 @@ Interactive, GPU-accelerated galaxy renderer built with TypeScript and WebGPU. T
 ## Browser requirements
 
 - A browser with WebGPU support (https://caniuse.com/webgpu)
-  - Chrome/Edge 113+ recommended
+  - Chrome 113+ recommended
   - Safari 26+
   - Firefox 141+ (behind flag)
 - If the app reports “WebGPU not supported,” switch to a supported browser and ensure the page loads over HTTPS.
@@ -29,9 +29,9 @@ Visit http://localhost:8080
 
 ## Scripts
 
-- `npm run dev`: Start webpack-dev-server
-- `npm run build`: Development build to `public/`
-- `npm run prod`: Production build to `public/`
+- Start local dev server with `npm run dev` 
+- Dev build to `public/` with `npm run build`
+- Prod build to `public/` with `npm run prod`
 
 ## Using the app
 
@@ -49,11 +49,6 @@ Visit http://localhost:8080
 - Advanced options
   - Toggle shows GPU timings, VRAM estimates, and debug tools
   - Setting is saved in `localStorage` as `showAdvancedOptions`
-
-Notes
-
-- `Max Overdraw = 4096` disables overdraw buffers and overdraw debug (performance mode)
-- Temporal accumulation averages up to 16 slices; switching presets forces a clear to avoid ghosting
 
 ## Project structure (key parts)
 
@@ -86,5 +81,8 @@ src/
 
 - TypeScript + webpack 5; bundles to `public/galaxy-simulator-bundle.js`
 - Uniform packing shared via `src/utils/GalaxyUniformPacker.ts` and `src/constants/uniformLayout.ts`
-- Accumulation ring: 16 RGBA16F layers blended via `postprocessing/accum.average.frag.wgsl`
+- Temporal accumulation ring uses 16 RGBA16F layers blended via `postprocessing/accum.average.frag.wgsl`
+- Switching presets forces a clear of the 16 layers to avoid ghosting from stale data
 - Overdraw counting uses an atomic buffer and can be visualized with the debug shader
+- `Max Overdraw = 4096` disables overdraw buffers and overdraw debug (performance mode)
+
