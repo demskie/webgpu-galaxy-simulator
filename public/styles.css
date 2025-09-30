@@ -18,6 +18,26 @@ html, body {
 	overflow: hidden;
 }
 
+/* GitHub corner badge */
+.github-badge {
+	position: fixed;
+	top: 0;
+	left: 0;
+	padding: 6px 12px;
+	background: linear-gradient(135deg, rgba(124,58,237,0.95), rgba(37,99,235,0.95));
+	color: #fff;
+	text-decoration: none;
+	font-family: sans-serif;
+	font-size: 14pt;
+	border: 1px solid rgba(255,255,255,0.2);
+	box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+	z-index: 1000;
+}
+
+.github-badge:hover {
+	filter: brightness(1.5);
+}
+
 body {
 	background-color: #000000;
 	color: #bbbbcc;

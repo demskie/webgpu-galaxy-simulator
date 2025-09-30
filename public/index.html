@@ -1,402 +1,410 @@
 <!DOCTYPE html>
 <html>
-	<head>
-		<meta charset="utf-8" />
-		<title>WebGPU Galaxy Simulator</title>
-		<link rel="stylesheet" href="styles.css" />
-	</head>
-	<body>
-		<div class="container">
-			<div class="main-content">
-				<div class="canvas-section">
-					<div class="canvas-wrapper">
-						<div class="canvas-container">
-							<canvas id="cvGalaxy"></canvas>
-						</div>
-					</div>
-				</div>
+  <head>
+    <meta charset="utf-8" />
+    <title>WebGPU Galaxy Simulator</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a
+      href="https://github.com/demskie/webgpu-galaxy-simulator"
+      class="github-badge"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="View on GitHub"
+      >View on GitHub</a
+    >
+    <div class="container">
+      <div class="main-content">
+        <div class="canvas-section">
+          <div class="canvas-wrapper">
+            <div class="canvas-container">
+              <canvas id="cvGalaxy"></canvas>
+            </div>
+          </div>
+        </div>
 
-				<div class="controls-section">
-					<div class="controls-column">
-						<form>
-							<fieldset>
-								<h3>Galaxy presets</h3>
-								<select id="cbPreset" name="viewpoint">
-									<!-- Options will be populated dynamically from JSON -->
-								</select>
+        <div class="controls-section">
+          <div class="controls-column">
+            <form>
+              <fieldset>
+                <h3>Galaxy presets</h3>
+                <select id="cbPreset" name="viewpoint">
+                  <!-- Options will be populated dynamically from JSON -->
+                </select>
 
-								<div style="margin-top: 10px">
-									<button type="button" id="saveSelectedBtn" style="margin-right: 5px">Save</button>
-									<button type="button" id="resetSelectedBtn" style="margin-right: 5px">Reset</button>
-									<button type="button" id="createPresetBtn" style="margin-right: 5px">Create</button>
-									<button type="button" id="renamePresetBtn" style="margin-right: 5px">Rename</button>
-									<button type="button" id="deletePresetBtn" style="margin-right: 5px">Delete</button>
-									<button type="button" id="exportPresetBtn">Export</button>
-								</div>
-							</fieldset>
+                <div style="margin-top: 10px">
+                  <button type="button" id="saveSelectedBtn" style="margin-right: 5px">Save</button>
+                  <button type="button" id="resetSelectedBtn" style="margin-right: 5px">Reset</button>
+                  <button type="button" id="createPresetBtn" style="margin-right: 5px">Create</button>
+                  <button type="button" id="renamePresetBtn" style="margin-right: 5px">Rename</button>
+                  <button type="button" id="deletePresetBtn" style="margin-right: 5px">Delete</button>
+                  <button type="button" id="exportPresetBtn">Export</button>
+                </div>
+              </fieldset>
 
-							<fieldset>
-								<div id="advancedToggle">
-									<label for="cbAdvancedOptions">
-										<input type="checkbox" id="cbAdvancedOptions" checked />
-										<span>Show advanced options</span>
-									</label>
-								</div>
-							</fieldset>
+              <fieldset>
+                <div id="advancedToggle">
+                  <label for="cbAdvancedOptions">
+                    <input type="checkbox" id="cbAdvancedOptions" checked />
+                    <span>Show advanced options</span>
+                  </label>
+                </div>
+              </fieldset>
 
-							<fieldset class="advanced-option">
-								<h3>Advanced</h3>
+              <fieldset class="advanced-option">
+                <h3>Advanced</h3>
 
-								<div id="pixelColorDisplay">
-									<span class="color-swatch"></span>
-									<span class="color-text">Move mouse over canvas</span>
-									<span class="fps-text">FPS: --</span>
-								</div>
+                <div id="pixelColorDisplay">
+                  <span class="color-swatch"></span>
+                  <span class="color-text">Move mouse over canvas</span>
+                  <span class="fps-text">FPS: --</span>
+                </div>
 
-								<div id="timingDisplay">
-									<span class="timing-text vram-time">VRAM: -- MB</span>
-									<span class="timing-text cpu-time">CPU: -- ms</span>
-									<span class="timing-text gpu-time">GPU: -- ms</span>
-									<div class="timing-line-break"></div>
-									<span class="timing-text stars-time">Stars: -- ms</span>
-									<span class="timing-text post-time">Post: -- ms</span>
-								</div>
-							</fieldset>
+                <div id="timingDisplay">
+                  <span class="timing-text vram-time">VRAM: -- MB</span>
+                  <span class="timing-text cpu-time">CPU: -- ms</span>
+                  <span class="timing-text gpu-time">GPU: -- ms</span>
+                  <div class="timing-line-break"></div>
+                  <span class="timing-text stars-time">Stars: -- ms</span>
+                  <span class="timing-text post-time">Post: -- ms</span>
+                </div>
+              </fieldset>
 
-							<fieldset>
-								<h3>Galaxy Properties</h3>
-								<div class="slider">
-									<label for="slGalaxyRadius">galaxy radius</label><br />
-									<input type="range" min="10000" max="25000" class="slider" step="1" id="slGalaxyRadius" />
-									<span id="labelGalaxyRadius"></span>
-								</div>
+              <fieldset>
+                <h3>Galaxy Properties</h3>
+                <div class="slider">
+                  <label for="slGalaxyRadius">galaxy radius</label><br />
+                  <input type="range" min="10000" max="25000" class="slider" step="1" id="slGalaxyRadius" />
+                  <span id="labelGalaxyRadius"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slSpiralPeakPosition">spiral peak position</label><br />
-									<input type="range" min="0.1" max="2" class="slider" step="0.01" id="slSpiralPeakPosition" />
-									<span id="labelSpiralPeakPosition"></span>
-								</div>
+                <div class="slider">
+                  <label for="slSpiralPeakPosition">spiral peak position</label><br />
+                  <input type="range" min="0.1" max="2" class="slider" step="0.01" id="slSpiralPeakPosition" />
+                  <span id="labelSpiralPeakPosition"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slSpiralTightness">spiral tightness</label><br />
-									<input type="range" min="0.0001" max="0.0008" step="0.00001" class="slider" id="slSpiralTightness" />
-									<span id="labelSpiralTightness"></span>
-								</div>
+                <div class="slider">
+                  <label for="slSpiralTightness">spiral tightness</label><br />
+                  <input type="range" min="0.0001" max="0.0008" step="0.00001" class="slider" id="slSpiralTightness" />
+                  <span id="labelSpiralTightness"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slSpiralIntensity">spiral intensity</label><br />
-									<input type="range" min="0" max="1" step="0.01" class="slider" id="slSpiralIntensity" />
-									<span id="labelSpiralIntensity"></span>
-								</div>
+                <div class="slider">
+                  <label for="slSpiralIntensity">spiral intensity</label><br />
+                  <input type="range" min="0" max="1" step="0.01" class="slider" id="slSpiralIntensity" />
+                  <span id="labelSpiralIntensity"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slSpiralArmWaves">spiral arm waves</label><br />
-									<input type="range" min="0" max="4" step="1" class="slider" id="slSpiralArmWaves" />
-									<span id="labelSpiralArmWaves"></span>
-								</div>
+                <div class="slider">
+                  <label for="slSpiralArmWaves">spiral arm waves</label><br />
+                  <input type="range" min="0" max="4" step="1" class="slider" id="slSpiralArmWaves" />
+                  <span id="labelSpiralArmWaves"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slSpiralWaveStrength">spiral wave strength</label><br />
-									<input type="range" min="2" max="100" step="0.01" class="slider" id="slSpiralWaveStrength" />
-									<span id="labelSpiralWaveStrength"></span>
-								</div>
+                <div class="slider">
+                  <label for="slSpiralWaveStrength">spiral wave strength</label><br />
+                  <input type="range" min="2" max="100" step="0.01" class="slider" id="slSpiralWaveStrength" />
+                  <span id="labelSpiralWaveStrength"></span>
+                </div>
 
-								<div class="slider advanced-option">
-									<label for="slDensityFalloff">central bulge density falloff</label><br />
-									<input type="range" min="0.05" max="1.0" step="0.01" class="slider" id="slDensityFalloff" />
-									<span id="labelDensityFalloff"></span>
-								</div>
+                <div class="slider advanced-option">
+                  <label for="slDensityFalloff">central bulge density falloff</label><br />
+                  <input type="range" min="0.05" max="1.0" step="0.01" class="slider" id="slDensityFalloff" />
+                  <span id="labelDensityFalloff"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slSpiralEccentricityScale">spiral eccentricity scale</label><br />
-									<input type="range" min="0.0" max="1.0" step="0.01" class="slider" id="slSpiralEccentricityScale" />
-									<span id="labelSpiralEccentricityScale"></span>
-								</div>
+                <div class="slider">
+                  <label for="slSpiralEccentricityScale">spiral eccentricity scale</label><br />
+                  <input type="range" min="0.0" max="1.0" step="0.01" class="slider" id="slSpiralEccentricityScale" />
+                  <span id="labelSpiralEccentricityScale"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slSpiralWidthBase">spiral width base</label><br />
-									<input type="range" min="0.0" max="0.8" step="0.01" class="slider" id="slSpiralWidthBase" />
-									<span id="labelSpiralWidthBase"></span>
-								</div>
+                <div class="slider">
+                  <label for="slSpiralWidthBase">spiral width base</label><br />
+                  <input type="range" min="0.0" max="0.8" step="0.01" class="slider" id="slSpiralWidthBase" />
+                  <span id="labelSpiralWidthBase"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slGalaxyEdgeFadeStart">spiral edge fade position</label><br />
-									<input type="range" min="0.3" max="1.0" step="0.01" class="slider" id="slGalaxyEdgeFadeStart" />
-									<span id="labelGalaxyEdgeFadeStart"></span>
-								</div>
-							</fieldset>
+                <div class="slider">
+                  <label for="slGalaxyEdgeFadeStart">spiral edge fade position</label><br />
+                  <input type="range" min="0.3" max="1.0" step="0.01" class="slider" id="slGalaxyEdgeFadeStart" />
+                  <span id="labelGalaxyEdgeFadeStart"></span>
+                </div>
+              </fieldset>
 
-							<fieldset>
-								<h3>Temperature & Physics</h3>
-								<div class="slider">
-									<label for="slBaseTemperature">base temperature (K)</label><br />
-									<input type="range" min="1000" max="10000" step="10" class="slider" id="slBaseTemperature" />
-									<span id="labelBaseTemperature"></span>
-								</div>
+              <fieldset>
+                <h3>Temperature & Physics</h3>
+                <div class="slider">
+                  <label for="slBaseTemperature">base temperature (K)</label><br />
+                  <input type="range" min="1000" max="10000" step="10" class="slider" id="slBaseTemperature" />
+                  <span id="labelBaseTemperature"></span>
+                </div>
 
-								<div class="slider advanced-option">
-									<label for="slBrightStarMinTemperature">bright star min temp (K)</label><br />
-									<input
-										type="range"
-										min="2000"
-										max="8000"
-										step="100"
-										class="slider"
-										id="slBrightStarMinTemperature"
-									/>
-									<span id="labelBrightStarMinTemperature"></span>
-								</div>
+                <div class="slider advanced-option">
+                  <label for="slBrightStarMinTemperature">bright star min temp (K)</label><br />
+                  <input
+                    type="range"
+                    min="2000"
+                    max="8000"
+                    step="100"
+                    class="slider"
+                    id="slBrightStarMinTemperature"
+                  />
+                  <span id="labelBrightStarMinTemperature"></span>
+                </div>
 
-								<div class="slider advanced-option">
-									<label for="slBrightStarMaxTemperature">bright star max temp (K)</label><br />
-									<input
-										type="range"
-										min="6000"
-										max="15000"
-										step="100"
-										class="slider"
-										id="slBrightStarMaxTemperature"
-									/>
-									<span id="labelBrightStarMaxTemperature"></span>
-								</div>
+                <div class="slider advanced-option">
+                  <label for="slBrightStarMaxTemperature">bright star max temp (K)</label><br />
+                  <input
+                    type="range"
+                    min="6000"
+                    max="15000"
+                    step="100"
+                    class="slider"
+                    id="slBrightStarMaxTemperature"
+                  />
+                  <span id="labelBrightStarMaxTemperature"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slTemperatureRadiusFactor">temperature radius factor</label><br />
-									<input type="range" min="1" max="10" step="0.1" class="slider" id="slTemperatureRadiusFactor" />
-									<span id="labelTemperatureRadiusFactor"></span>
-								</div>
+                <div class="slider">
+                  <label for="slTemperatureRadiusFactor">temperature radius factor</label><br />
+                  <input type="range" min="1" max="10" step="0.1" class="slider" id="slTemperatureRadiusFactor" />
+                  <span id="labelTemperatureRadiusFactor"></span>
+                </div>
 
-								<div class="slider advanced-option">
-									<label for="slMaxRotationVelocity">max rotation velocity (km/s)</label><br />
-									<input type="range" min="100" max="800" step="10" class="slider" id="slMaxRotationVelocity" />
-									<span id="labelMaxRotationVelocity"></span>
-								</div>
+                <div class="slider advanced-option">
+                  <label for="slMaxRotationVelocity">max rotation velocity (km/s)</label><br />
+                  <input type="range" min="100" max="800" step="10" class="slider" id="slMaxRotationVelocity" />
+                  <span id="labelMaxRotationVelocity"></span>
+                </div>
 
-								<div class="slider advanced-option">
-									<label for="slRotationSpeed">rotation speed (animation)</label><br />
-									<input type="range" min="0" max="10000" step="1" class="slider" id="slRotationSpeed" />
-									<span id="labelRotationSpeed"></span>
-								</div>
-							</fieldset>
-						</form>
-					</div>
+                <div class="slider advanced-option">
+                  <label for="slRotationSpeed">rotation speed (animation)</label><br />
+                  <input type="range" min="0" max="10000" step="1" class="slider" id="slRotationSpeed" />
+                  <span id="labelRotationSpeed"></span>
+                </div>
+              </fieldset>
+            </form>
+          </div>
 
-					<div class="controls-column">
-						<form>
-							<fieldset class="advanced-option">
-								<h3>Performance</h3>
-								<div class="slider advanced-option">
-									<label for="slTemporalAccumulation">temporal accumulation</label><br />
-									<input type="range" min="0" max="4" step="1" class="slider" id="slTemporalAccumulation" />
-									<span id="labelTemporalAccumulation"></span>
-								</div>
+          <div class="controls-column">
+            <form>
+              <fieldset class="advanced-option">
+                <h3>Performance</h3>
+                <div class="slider advanced-option">
+                  <label for="slTemporalAccumulation">temporal accumulation</label><br />
+                  <input type="range" min="0" max="4" step="1" class="slider" id="slTemporalAccumulation" />
+                  <span id="labelTemporalAccumulation"></span>
+                </div>
 
-								<div class="slider advanced-option">
-									<label for="slMaxFrameRate">frame rate limit</label><br />
-									<input type="range" min="1" max="120" step="1" class="slider" id="slMaxFrameRate" />
-									<span id="labelMaxFrameRate"></span>
-								</div>
+                <div class="slider advanced-option">
+                  <label for="slMaxFrameRate">frame rate limit</label><br />
+                  <input type="range" min="1" max="120" step="1" class="slider" id="slMaxFrameRate" />
+                  <span id="labelMaxFrameRate"></span>
+                </div>
 
-								<div class="slider advanced-option">
-									<label for="slMaxOverdraw">max overdraw per pixel</label><br />
-									<input type="range" min="1" max="4096" step="1" class="slider" id="slMaxOverdraw" />
-									<span id="labelMaxOverdraw"></span>
-								</div>
-							</fieldset>
+                <div class="slider advanced-option">
+                  <label for="slMaxOverdraw">max overdraw per pixel</label><br />
+                  <input type="range" min="1" max="4096" step="1" class="slider" id="slMaxOverdraw" />
+                  <span id="labelMaxOverdraw"></span>
+                </div>
+              </fieldset>
 
-							<fieldset class="advanced-option">
-								<h3>Rendering</h3>
-								<div class="slider">
-									<label for="slExposure">exposure</label><br />
-									<input type="range" min="1" max="10" step="0.1" class="slider" id="slExposure" />
-									<span id="labelExposure"></span>
-								</div>
+              <fieldset class="advanced-option">
+                <h3>Rendering</h3>
+                <div class="slider">
+                  <label for="slExposure">exposure</label><br />
+                  <input type="range" min="1" max="10" step="0.1" class="slider" id="slExposure" />
+                  <span id="labelExposure"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slRadialExposureFalloff">radial exposure falloff</label><br />
-									<input type="range" min="0" max="1.0" step="0.01" class="slider" id="slRadialExposureFalloff" />
-									<span id="labelRadialExposureFalloff"></span>
-								</div>
+                <div class="slider">
+                  <label for="slRadialExposureFalloff">radial exposure falloff</label><br />
+                  <input type="range" min="0" max="1.0" step="0.01" class="slider" id="slRadialExposureFalloff" />
+                  <span id="labelRadialExposureFalloff"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slSaturation">color saturation</label><br />
-									<input type="range" min="1.0" max="6.0" step="0.01" class="slider" id="slSaturation" />
-									<span id="labelSaturation"></span>
-								</div>
+                <div class="slider">
+                  <label for="slSaturation">color saturation</label><br />
+                  <input type="range" min="1.0" max="6.0" step="0.01" class="slider" id="slSaturation" />
+                  <span id="labelSaturation"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slBloomIntensity">bloom intensity</label><br />
-									<input type="range" min="0" max="4.0" step="0.01" class="slider" id="slBloomIntensity" />
-									<span id="labelBloomIntensity"></span>
-								</div>
+                <div class="slider">
+                  <label for="slBloomIntensity">bloom intensity</label><br />
+                  <input type="range" min="0" max="4.0" step="0.01" class="slider" id="slBloomIntensity" />
+                  <span id="labelBloomIntensity"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slBloomThreshold">bloom threshold</label><br />
-									<input type="range" min="0.01" max="0.3" step="0.001" class="slider" id="slBloomThreshold" />
-									<span id="labelBloomThreshold"></span>
-								</div>
+                <div class="slider">
+                  <label for="slBloomThreshold">bloom threshold</label><br />
+                  <input type="range" min="0.01" max="0.3" step="0.001" class="slider" id="slBloomThreshold" />
+                  <span id="labelBloomThreshold"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slToneMapHighlights">tone map highlights</label><br />
-									<input type="range" min="0.5" max="2.0" step="0.01" class="slider" id="slToneMapHighlights" />
-									<span id="labelToneMapHighlights"></span>
-								</div>
+                <div class="slider">
+                  <label for="slToneMapHighlights">tone map highlights</label><br />
+                  <input type="range" min="0.5" max="2.0" step="0.01" class="slider" id="slToneMapHighlights" />
+                  <span id="labelToneMapHighlights"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slToneMapMidtones">tone map midtones</label><br />
-									<input type="range" min="0.5" max="2.0" step="0.01" class="slider" id="slToneMapMidtones" />
-									<span id="labelToneMapMidtones"></span>
-								</div>
+                <div class="slider">
+                  <label for="slToneMapMidtones">tone map midtones</label><br />
+                  <input type="range" min="0.5" max="2.0" step="0.01" class="slider" id="slToneMapMidtones" />
+                  <span id="labelToneMapMidtones"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slToneMapShoulder">tone map shoulder</label><br />
-									<input type="range" min="0.5" max="2.0" step="0.01" class="slider" id="slToneMapShoulder" />
-									<span id="labelToneMapShoulder"></span>
-								</div>
+                <div class="slider">
+                  <label for="slToneMapShoulder">tone map shoulder</label><br />
+                  <input type="range" min="0.5" max="2.0" step="0.01" class="slider" id="slToneMapShoulder" />
+                  <span id="labelToneMapShoulder"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slToneMapToe">tone map toe lift</label><br />
-									<input type="range" min="0.0" max="2.0" step="0.01" class="slider" id="slToneMapToe" />
-									<span id="labelToneMapToe"></span>
-								</div>
+                <div class="slider">
+                  <label for="slToneMapToe">tone map toe lift</label><br />
+                  <input type="range" min="0.0" max="2.0" step="0.01" class="slider" id="slToneMapToe" />
+                  <span id="labelToneMapToe"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slShadowLift">shadow lift</label><br />
-									<input type="range" min="0.0" max="0.2" step="0.001" class="slider" id="slShadowLift" />
-									<span id="labelShadowLift"></span>
-								</div>
+                <div class="slider">
+                  <label for="slShadowLift">shadow lift</label><br />
+                  <input type="range" min="0.0" max="0.2" step="0.001" class="slider" id="slShadowLift" />
+                  <span id="labelShadowLift"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slMinLiftThreshold">min lift threshold</label><br />
-									<input type="range" min="0.0" max="0.1" step="0.001" class="slider" id="slMinLiftThreshold" />
-									<span id="labelMinLiftThreshold"></span>
-								</div>
-							</fieldset>
+                <div class="slider">
+                  <label for="slMinLiftThreshold">min lift threshold</label><br />
+                  <input type="range" min="0.0" max="0.1" step="0.001" class="slider" id="slMinLiftThreshold" />
+                  <span id="labelMinLiftThreshold"></span>
+                </div>
+              </fieldset>
 
-							<fieldset>
-								<h3>Star Distribution</h3>
-								<div class="slider">
-									<label for="slBrightStarCount">bright star count</label><br />
-									<input type="range" min="0" max="10000" step="1" class="slider" id="slBrightStarCount" />
-									<span id="labelBrightStarCount"></span>
-								</div>
+              <fieldset>
+                <h3>Star Distribution</h3>
+                <div class="slider">
+                  <label for="slBrightStarCount">bright star count</label><br />
+                  <input type="range" min="0" max="10000" step="1" class="slider" id="slBrightStarCount" />
+                  <span id="labelBrightStarCount"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slCentralBulgeDensity">central bulge density</label><br />
-									<input type="range" min="0" max="100" step="1" class="slider" id="slCentralBulgeDensity" />
-									<span id="labelCentralBulgeDensity"></span>
-								</div>
+                <div class="slider">
+                  <label for="slCentralBulgeDensity">central bulge density</label><br />
+                  <input type="range" min="0" max="100" step="1" class="slider" id="slCentralBulgeDensity" />
+                  <span id="labelCentralBulgeDensity"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slDiskStarDensity">disk star density</label><br />
-									<input type="range" min="0" max="200" step="1" class="slider" id="slDiskStarDensity" />
-									<span id="labelDiskStarDensity"></span>
-								</div>
+                <div class="slider">
+                  <label for="slDiskStarDensity">disk star density</label><br />
+                  <input type="range" min="0" max="200" step="1" class="slider" id="slDiskStarDensity" />
+                  <span id="labelDiskStarDensity"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slBackgroundStarDensity">background star density</label><br />
-									<input type="range" min="0" max="50" step="1" class="slider" id="slBackgroundStarDensity" />
-									<span id="labelBackgroundStarDensity"></span>
-								</div>
-							</fieldset>
+                <div class="slider">
+                  <label for="slBackgroundStarDensity">background star density</label><br />
+                  <input type="range" min="0" max="50" step="1" class="slider" id="slBackgroundStarDensity" />
+                  <span id="labelBackgroundStarDensity"></span>
+                </div>
+              </fieldset>
 
-							<fieldset>
-								<h3>Star Properties</h3>
+              <fieldset>
+                <h3>Star Properties</h3>
 
-								<div class="slider advanced-option">
-									<label for="slDustParticleSize">dust particle size</label><br />
-									<input type="range" min="64" max="2048" step="1" class="slider" id="slDustParticleSize" />
-									<span id="labelDustParticleSize"></span>
-								</div>
+                <div class="slider advanced-option">
+                  <label for="slDustParticleSize">dust particle size</label><br />
+                  <input type="range" min="64" max="2048" step="1" class="slider" id="slDustParticleSize" />
+                  <span id="labelDustParticleSize"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slMinimumBrightness">dust particle brightness</label><br />
-									<input type="range" min="0.0001" max="0.3" step="0.0001" class="slider" id="slMinimumBrightness" />
-									<span id="labelMinimumBrightness"></span>
-								</div>
+                <div class="slider">
+                  <label for="slMinimumBrightness">dust particle brightness</label><br />
+                  <input type="range" min="0.0001" max="0.3" step="0.0001" class="slider" id="slMinimumBrightness" />
+                  <span id="labelMinimumBrightness"></span>
+                </div>
 
-								<div class="slider advanced-option">
-									<label for="slBrightnessVariation">dust particle brightness variation</label><br />
-									<input type="range" min="0.0" max="0.5" step="0.001" class="slider" id="slBrightnessVariation" />
-									<span id="labelBrightnessVariation"></span>
-								</div>
+                <div class="slider advanced-option">
+                  <label for="slBrightnessVariation">dust particle brightness variation</label><br />
+                  <input type="range" min="0.0" max="0.5" step="0.001" class="slider" id="slBrightnessVariation" />
+                  <span id="labelBrightnessVariation"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slTotalStarCount">dust particle count</label><br />
-									<input type="range" min="10000" max="2000000" step="1000" class="slider" id="slTotalStarCount" />
-									<span id="labelTotalStarCount"></span>
-								</div>
+                <div class="slider">
+                  <label for="slTotalStarCount">dust particle count</label><br />
+                  <input type="range" min="10000" max="2000000" step="1000" class="slider" id="slTotalStarCount" />
+                  <span id="labelTotalStarCount"></span>
+                </div>
 
-								<div class="slider advanced-option">
-									<label for="slStarEdgeSoftness">dust particle edge softness</label><br />
-									<input type="range" min="0.1" max="1.0" step="0.01" class="slider" id="slStarEdgeSoftness" />
-									<span id="labelStarEdgeSoftness"></span>
-								</div>
+                <div class="slider advanced-option">
+                  <label for="slStarEdgeSoftness">dust particle edge softness</label><br />
+                  <input type="range" min="0.1" max="1.0" step="0.01" class="slider" id="slStarEdgeSoftness" />
+                  <span id="labelStarEdgeSoftness"></span>
+                </div>
 
-								<div class="slider advanced-option">
-									<label for="slParticleSizeVariation">dust particle size variation</label><br />
-									<input type="range" min="0.0" max="10.0" step="0.01" class="slider" id="slParticleSizeVariation" />
-									<span id="labelParticleSizeVariation"></span>
-								</div>
+                <div class="slider advanced-option">
+                  <label for="slParticleSizeVariation">dust particle size variation</label><br />
+                  <input type="range" min="0.0" max="10.0" step="0.01" class="slider" id="slParticleSizeVariation" />
+                  <span id="labelParticleSizeVariation"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slBrightStarSize">bright star size</label><br />
-									<input type="range" min="64" max="1024" step="1" class="slider" id="slBrightStarSize" />
-									<span id="labelBrightStarSize"></span>
-								</div>
+                <div class="slider">
+                  <label for="slBrightStarSize">bright star size</label><br />
+                  <input type="range" min="64" max="1024" step="1" class="slider" id="slBrightStarSize" />
+                  <span id="labelBrightStarSize"></span>
+                </div>
 
-								<div class="slider advanced-option">
-									<label for="slBrightStarRadiusFactor">bright star extent</label><br />
-									<input type="range" min="0.1" max="10" step="0.01" class="slider" id="slBrightStarRadiusFactor" />
-									<span id="labelBrightStarRadiusFactor"></span>
-								</div>
+                <div class="slider advanced-option">
+                  <label for="slBrightStarRadiusFactor">bright star extent</label><br />
+                  <input type="range" min="0.1" max="10" step="0.01" class="slider" id="slBrightStarRadiusFactor" />
+                  <span id="labelBrightStarRadiusFactor"></span>
+                </div>
 
-								<div class="slider">
-									<label for="slBrightStarBrightness">bright star brightness</label><br />
-									<input type="range" min="0.1" max="3.0" step="0.01" class="slider" id="slBrightStarBrightness" />
-									<span id="labelBrightStarBrightness"></span>
-								</div>
+                <div class="slider">
+                  <label for="slBrightStarBrightness">bright star brightness</label><br />
+                  <input type="range" min="0.1" max="3.0" step="0.01" class="slider" id="slBrightStarBrightness" />
+                  <span id="labelBrightStarBrightness"></span>
+                </div>
 
-								<div class="slider advanced-option">
-									<label for="slCoreBrightStarSuppressionMag">bright star core suppression magnitude</label><br />
-									<input type="range" min="0" max="1" step="0.01" class="slider" id="slCoreBrightStarSuppressionMag" />
-									<span id="labelCoreBrightStarSuppressionMag"></span>
-								</div>
+                <div class="slider advanced-option">
+                  <label for="slCoreBrightStarSuppressionMag">bright star core suppression magnitude</label><br />
+                  <input type="range" min="0" max="1" step="0.01" class="slider" id="slCoreBrightStarSuppressionMag" />
+                  <span id="labelCoreBrightStarSuppressionMag"></span>
+                </div>
 
-								<div class="slider advanced-option">
-									<label for="slCoreBrightStarSuppressionExtent">bright star core suppression extent</label><br />
-									<input
-										type="range"
-										min="0.1"
-										max="1.0"
-										step="0.01"
-										class="slider"
-										id="slCoreBrightStarSuppressionExtent"
-									/>
-									<span id="labelCoreBrightStarSuppressionExtent"></span>
-								</div>
-							</fieldset>
+                <div class="slider advanced-option">
+                  <label for="slCoreBrightStarSuppressionExtent">bright star core suppression extent</label><br />
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="1.0"
+                    step="0.01"
+                    class="slider"
+                    id="slCoreBrightStarSuppressionExtent"
+                  />
+                  <span id="labelCoreBrightStarSuppressionExtent"></span>
+                </div>
+              </fieldset>
 
-							<fieldset class="advanced-option">
-								<h3>Debug</h3>
-								<div class="checkbox">
-									<label for="cbOverdrawDebug">
-										<input type="checkbox" id="cbOverdrawDebug" />
-										Overdraw Heatmap
-									</label>
-								</div>
-								<div class="slider" id="overdrawIntensitySliderContainer">
-									<label for="slOverdrawIntensity">max draws per pixel</label><br />
-									<input type="range" min="1" max="1000" step="1" class="slider" id="slOverdrawIntensity" />
-									<span id="labelOverdrawIntensity"></span>
-								</div>
-							</fieldset>
-						</form>
-					</div>
-				</div>
-			</div>
-		</div>
+              <fieldset class="advanced-option">
+                <h3>Debug</h3>
+                <div class="checkbox">
+                  <label for="cbOverdrawDebug">
+                    <input type="checkbox" id="cbOverdrawDebug" />
+                    Overdraw Heatmap
+                  </label>
+                </div>
+                <div class="slider" id="overdrawIntensitySliderContainer">
+                  <label for="slOverdrawIntensity">max draws per pixel</label><br />
+                  <input type="range" min="1" max="1000" step="1" class="slider" id="slOverdrawIntensity" />
+                  <span id="labelOverdrawIntensity"></span>
+                </div>
+              </fieldset>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
 
-		<script src="./galaxy-simulator-bundle.js"></script>
-	</body>
+    <script src="./galaxy-simulator-bundle.js"></script>
+  </body>
 </html>
