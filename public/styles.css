@@ -11,6 +11,13 @@ h3 {
 	color: #eeeeee;
 }
 
+html, body {
+	margin: 0;
+	padding: 0;
+	height: 100%;
+	overflow: hidden;
+}
+
 body {
 	background-color: #000000;
 	color: #bbbbcc;
@@ -20,7 +27,6 @@ body {
 }
 
 canvas {
-	border: 2px solid white;
 	width: 100%;
 	height: auto;
 	aspect-ratio: 1;
@@ -244,6 +250,8 @@ select option {
 
 .canvas-container {
 	position: relative;
+	box-sizing: border-box;
+	border: 2px solid white;
 	width: min(calc(100vh - 40px), calc(100vw - 420px));
 	height: min(calc(100vh - 40px), calc(100vw - 420px));
 	max-width: calc(100vh - 40px);
