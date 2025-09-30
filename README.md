@@ -2,7 +2,7 @@
 
 An interactive GPU-accelerated galaxy simulator built with TypeScript and WebGPU. Tweak astrophysical and rendering parameters live, explore presets, and profile performance.
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/EqLCjZXcEWg" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+[![Watch the video](https://img.youtube.com/vi/EqLCjZXcEWg/hqdefault.jpg)](https://www.youtube.com/embed/EqLCjZXcEWg)
 
 ## Features
 
@@ -31,7 +31,7 @@ Visit http://localhost:8080
 
 ## Scripts
 
-- Start local dev server with `npm run dev` 
+- Start local dev server with `npm run dev`
 - Dev build to `public/` with `npm run build`
 - Prod build to `public/` with `npm run prod`
 
@@ -87,4 +87,3 @@ src/
 - Switching presets forces a clear of the 16 layers to avoid ghosting from stale data
 - Overdraw counting uses an atomic buffer and can be visualized with the debug shader
 - `Max Overdraw = 4096` disables overdraw buffers and overdraw debug (performance mode)
-
