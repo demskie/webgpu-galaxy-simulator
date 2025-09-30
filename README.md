@@ -2,6 +2,8 @@
 
 An interactive GPU-accelerated galaxy simulator built with TypeScript and WebGPU. Tweak astrophysical and rendering parameters live, explore presets, and profile performance.
 
+<iframe width="560" height="315" src="https://www.youtube.com/embed/EqLCjZXcEWg" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
 ## Features
 
 - Real-time particle-based galaxy rendering with WebGPU
