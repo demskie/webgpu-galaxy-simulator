@@ -22,12 +22,15 @@ export class DrawOverdrawResources {
 	}
 
 	setup() {
-		if (!!!this.overdrawPipeline) this.createOverdrawPipeline(this.resources().particleResources);
+		if (this.galaxy().maxOverdraw >= 4096) return;
+		const pr = this.resources().particleResources;
+		if (!!!pr.particleBindGroupLayout) pr.createParticleBindGroupLayout();
+		if (!!!pr.particlePipelineLayout) pr.createParticlePipelineLayout();
+		if (!!!this.overdrawPipeline) this.createOverdrawPipeline(pr);
 	}
 
-	createOverdrawPipeline(particleResources: ParticleResources) {
-		if (!!!particleResources.particlePipelineLayout)
-			return console.error("Particle pipeline layout not ready for overdraw pipeline creation.");
+	createOverdrawPipeline(particleResources: ParticleResources): GPURenderPipeline {
+		if (!!!particleResources.particlePipelineLayout) particleResources.createParticlePipelineLayout();
 		this.overdrawPipeline = this.device.createRenderPipeline({
 			label: "overdrawPipeline",
 			layout: particleResources.particlePipelineLayout!,
@@ -57,6 +60,7 @@ export class DrawOverdrawResources {
 			primitive: { topology: "triangle-list" },
 			multisample: { count: 4 },
 		});
+		return this.overdrawPipeline;
 	}
 
 	destroy() {

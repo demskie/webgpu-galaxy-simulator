@@ -90,15 +90,28 @@ export class ParticleResources {
 		this.lastParticleStorageBuffer = this.particleStorageBuffer;
 	}
 
-	createUniformBuffer() {
+	getUniformBuffer = () => this.uniformBuffer ?? this.createUniformBuffer();
+	getQuadVertexBuffer = () => this.quadVertexBuffer ?? this.createQuadVertexBuffer();
+	getParticleStorageBuffer = () => this.particleStorageBuffer ?? this.createParticleStorageBuffer();
+	getParticleBindGroupLayout = () => this.particleBindGroupLayout ?? this.createParticleBindGroupLayout();
+	getParticleBindGroupLayoutNoOverdraw = () => this.particleBindGroupLayoutNoOverdraw ?? this.createParticleBindGroupLayoutNoOverdraw(); // prettier-ignore
+	getParticleBindGroup = () => this.particleBindGroup ?? this.createParticleBindGroup(this.resources().countOverdrawResources, this.canvas.width, this.canvas.height); // prettier-ignore
+	getParticleBindGroupNoOverdraw = () => this.particleBindGroupNoOverdraw ?? this.createParticleBindGroupNoOverdraw(); // prettier-ignore
+	getParticlePipelineLayout = () => this.particlePipelineLayout ?? this.createParticlePipelineLayout();
+	getParticlePipelineLayoutNoOverdraw = () => this.particlePipelineLayoutNoOverdraw ?? this.createParticlePipelineLayoutNoOverdraw(); // prettier-ignore
+	getParticlePipeline = () => this.particlePipeline ?? this.createParticlePipeline();
+	getParticlePipelineNoOverdraw = () => this.particlePipelineNoOverdraw ?? this.createParticlePipelineNoOverdraw();
+
+	createUniformBuffer(): GPUBuffer {
 		this.uniformBuffer?.destroy();
 		this.uniformBuffer = this.device.createBuffer({
 			size: UNIFORM_LAYOUT.totalSize,
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 		});
+		return this.uniformBuffer;
 	}
 
-	createQuadVertexBuffer() {
+	createQuadVertexBuffer(): GPUBuffer {
 		this.quadVertexBuffer?.destroy();
 		// Precompute offsets for quad vertices (2 triangles -> 6 vertices)
 		// (0,0), (1,0), (0,1), (1,0), (1,1), (0,1) -> corresponds to vertex_index 0..5
@@ -116,9 +129,10 @@ export class ParticleResources {
 		new Float32Array(quadVertexBuffer.getMappedRange()).set(quadVertices);
 		quadVertexBuffer.unmap();
 		this.quadVertexBuffer = quadVertexBuffer;
+		return quadVertexBuffer;
 	}
 
-	createParticleStorageBuffer() {
+	createParticleStorageBuffer(): GPUBuffer {
 		this.particleStorageBuffer?.destroy();
 		// Allocate a minimal non-zero buffer to satisfy bind group validation.
 		// Will be resized later by ParticleRenderer.allocateEmptyBuffer().
@@ -127,9 +141,10 @@ export class ParticleResources {
 			size: minimalStride,
 			usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
 		});
+		return this.particleStorageBuffer;
 	}
 
-	createParticleBindGroupLayout() {
+	createParticleBindGroupLayout(): GPUBindGroupLayout {
 		this.particleBindGroupLayout = this.device.createBindGroupLayout({
 			label: "particleBindGroupLayout",
 			entries: [
@@ -138,9 +153,10 @@ export class ParticleResources {
 				{ binding: 2, visibility: GPUShaderStage.FRAGMENT, buffer: { type: "storage" } },
 			],
 		});
+		return this.particleBindGroupLayout;
 	}
 
-	createParticleBindGroupLayoutNoOverdraw() {
+	createParticleBindGroupLayoutNoOverdraw(): GPUBindGroupLayout {
 		this.particleBindGroupLayoutNoOverdraw = this.device.createBindGroupLayout({
 			label: "particleBindGroupLayoutNoOverdraw",
 			entries: [
@@ -148,9 +164,10 @@ export class ParticleResources {
 				{ binding: 1, visibility: GPUShaderStage.VERTEX, buffer: { type: "read-only-storage" } },
 			],
 		});
+		return this.particleBindGroupLayoutNoOverdraw;
 	}
 
-	createParticleBindGroup(countOverdrawResources: CountOverdrawResources, width: number, height: number) {
+	createParticleBindGroup(countOverdrawResources: CountOverdrawResources, width: number, height: number): GPUBindGroup {
 		if (!!!this.particleBindGroupLayout) this.createParticleBindGroupLayout();
 		if (!!!this.uniformBuffer) this.createUniformBuffer();
 		if (!!!this.particleStorageBuffer) this.createParticleStorageBuffer();
@@ -164,9 +181,10 @@ export class ParticleResources {
 				{ binding: 2, resource: { buffer: countOverdrawResources.overdrawCountBuffer! } },
 			],
 		});
+		return this.particleBindGroup;
 	}
 
-	createParticleBindGroupNoOverdraw() {
+	createParticleBindGroupNoOverdraw(): GPUBindGroup {
 		if (!!!this.particleBindGroupLayoutNoOverdraw) this.createParticleBindGroupLayoutNoOverdraw();
 		if (!!!this.uniformBuffer) this.createUniformBuffer();
 		if (!!!this.particleStorageBuffer) this.createParticleStorageBuffer();
@@ -178,25 +196,28 @@ export class ParticleResources {
 				{ binding: 1, resource: { buffer: this.particleStorageBuffer! } },
 			],
 		});
+		return this.particleBindGroupNoOverdraw;
 	}
 
-	createParticlePipelineLayout() {
+	createParticlePipelineLayout(): GPUPipelineLayout {
 		if (!!!this.particleBindGroupLayout) this.createParticleBindGroupLayout();
 		this.particlePipelineLayout = this.device.createPipelineLayout({
 			label: "particlePipelineLayout",
 			bindGroupLayouts: [this.particleBindGroupLayout!],
 		});
+		return this.particlePipelineLayout;
 	}
 
-	createParticlePipelineLayoutNoOverdraw() {
+	createParticlePipelineLayoutNoOverdraw(): GPUPipelineLayout {
 		if (!!!this.particleBindGroupLayoutNoOverdraw) this.createParticleBindGroupLayoutNoOverdraw();
 		this.particlePipelineLayoutNoOverdraw = this.device.createPipelineLayout({
 			label: "particlePipelineLayoutNoOverdraw",
 			bindGroupLayouts: [this.particleBindGroupLayoutNoOverdraw!],
 		});
+		return this.particlePipelineLayoutNoOverdraw;
 	}
 
-	createParticlePipeline() {
+	createParticlePipeline(): GPURenderPipeline {
 		if (!!!this.particlePipelineLayout) this.createParticlePipelineLayout();
 		this.particlePipeline = this.device.createRenderPipeline({
 			label: "particlePipeline",
@@ -227,9 +248,10 @@ export class ParticleResources {
 			primitive: { topology: "triangle-list" },
 			multisample: { count: 4 }, // Enable 4x MSAA
 		});
+		return this.particlePipeline;
 	}
 
-	createParticlePipelineNoOverdraw() {
+	createParticlePipelineNoOverdraw(): GPURenderPipeline {
 		if (!!!this.particlePipelineLayoutNoOverdraw) this.createParticlePipelineLayoutNoOverdraw();
 		this.particlePipelineNoOverdraw = this.device.createRenderPipeline({
 			label: "particlePipelineNoOverdraw",
@@ -260,6 +282,7 @@ export class ParticleResources {
 			primitive: { topology: "triangle-list" },
 			multisample: { count: 4 },
 		});
+		return this.particlePipelineNoOverdraw;
 	}
 
 	destroy() {

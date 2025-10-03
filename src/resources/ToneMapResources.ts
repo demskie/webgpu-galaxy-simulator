@@ -20,6 +20,9 @@ export class ToneMapResources {
 	toneMapBindGroup: GPUBindGroup | null = null;
 
 	private lastDims = { width: -1, height: -1 };
+	private readonly cachedToneParams = new Float32Array(9);
+	private readonly lastToneParams = new Float32Array(9);
+	private toneParamsInitialized = false;
 
 	constructor(simulator: GalaxySimulator) {
 		this.device = simulator.device;
@@ -31,23 +34,23 @@ export class ToneMapResources {
 
 	setup() {
 		const [width, height] = [this.canvas.width, this.canvas.height];
-		if (
-			width != this.lastDims.width ||
-			height != this.lastDims.height ||
-			!!!this.toneMapPipeline ||
-			!!!this.toneParamBuffer ||
-			!!!this.toneMapSampler ||
-			!!!this.toneMapBindGroup
-		) {
-			this.createToneMapPipeline();
-			this.createToneParamBuffer();
-			this.createToneMapSampler();
+		if (!!!this.toneMapPipeline) this.createToneMapPipeline();
+		if (!!!this.toneParamBuffer) this.createToneParamBuffer();
+		if (!!!this.toneMapSampler) this.createToneMapSampler();
+		if (!!!this.toneMapBindGroup || width != this.lastDims.width || height != this.lastDims.height) {
 			this.createToneMapBindGroup(this.resources().hdrResources, this.resources().bloomResources, width, height);
 		}
+
+		this.updateToneParamBuffer();
 		this.lastDims = { width, height };
 	}
 
-	createToneMapPipeline() {
+	getToneMapPipeline = () => this.toneMapPipeline ?? this.createToneMapPipeline();
+	getToneParamBuffer = () => this.toneParamBuffer ?? this.createToneParamBuffer();
+	getToneMapSampler = () => this.toneMapSampler ?? this.createToneMapSampler();
+	getToneMapBindGroup = () => this.toneMapBindGroup ?? this.createToneMapBindGroup(this.resources().hdrResources, this.resources().bloomResources, this.canvas.width, this.canvas.height); // prettier-ignore
+
+	createToneMapPipeline(): GPURenderPipeline {
 		const bindGroupLayout = this.device.createBindGroupLayout({
 			entries: [
 				{ binding: 0, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
@@ -66,40 +69,41 @@ export class ToneMapResources {
 			},
 			primitive: { topology: "triangle-list" },
 		});
+		return this.toneMapPipeline;
 	}
 
-	createToneParamBuffer() {
+	createToneParamBuffer(): GPUBuffer {
 		this.toneParamBuffer = this.device.createBuffer({
 			size: 36, // 9 floats
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 		});
+		this.toneParamsInitialized = false;
 		this.updateToneParamBuffer();
+		return this.toneParamBuffer;
 	}
 
-	updateToneParamBuffer() {
+	updateToneParamBuffer(): GPUBuffer {
 		if (!!!this.toneParamBuffer) this.createToneParamBuffer();
-		this.device.queue.writeBuffer(
-			this.toneParamBuffer!,
-			0,
-			new Float32Array([
-				this.galaxy().exposure,
-				this.galaxy().saturation,
-				this.galaxy().bloomIntensity,
-				this.galaxy().shadowLift,
-				this.galaxy().minLiftThreshold,
-				this.galaxy().toneMapToe,
-				this.galaxy().toneMapHighlights,
-				this.galaxy().toneMapMidtones,
-				this.galaxy().toneMapShoulder,
-			])
-		);
+		this.populateToneParams(this.cachedToneParams);
+		if (!this.toneParamsInitialized || this.toneParamsChanged()) {
+			this.device.queue.writeBuffer(this.toneParamBuffer!, 0, this.cachedToneParams);
+			this.lastToneParams.set(this.cachedToneParams);
+			this.toneParamsInitialized = true;
+		}
+		return this.toneParamBuffer!;
 	}
 
-	createToneMapSampler() {
+	createToneMapSampler(): GPUSampler {
 		this.toneMapSampler = this.device.createSampler({ magFilter: "linear", minFilter: "linear" });
+		return this.toneMapSampler;
 	}
 
-	createToneMapBindGroup(hdrResources: HDRResources, bloomResources: BloomResources, width: number, height: number) {
+	createToneMapBindGroup(
+		hdrResources: HDRResources,
+		bloomResources: BloomResources,
+		width: number,
+		height: number
+	): GPUBindGroup {
 		if (!!!this.toneMapPipeline) this.createToneMapPipeline();
 		if (!!!this.toneMapSampler) this.createToneMapSampler();
 		if (!!!this.toneParamBuffer) this.createToneParamBuffer();
@@ -114,6 +118,27 @@ export class ToneMapResources {
 				{ binding: 3, resource: bloomResources.bloomTextureView1! },
 			],
 		});
+		return this.toneMapBindGroup!;
+	}
+
+	private populateToneParams(target: Float32Array) {
+		target[0] = this.galaxy().exposure;
+		target[1] = this.galaxy().saturation;
+		target[2] = this.galaxy().bloomIntensity;
+		target[3] = this.galaxy().shadowLift;
+		target[4] = this.galaxy().minLiftThreshold;
+		target[5] = this.galaxy().toneMapToe;
+		target[6] = this.galaxy().toneMapHighlights;
+		target[7] = this.galaxy().toneMapMidtones;
+		target[8] = this.galaxy().toneMapShoulder;
+	}
+
+	private toneParamsChanged(): boolean {
+		if (!this.toneParamsInitialized) return true;
+		for (let i = 0; i < this.cachedToneParams.length; i++) {
+			if (this.cachedToneParams[i] !== this.lastToneParams[i]) return true;
+		}
+		return false;
 	}
 
 	destroy() {

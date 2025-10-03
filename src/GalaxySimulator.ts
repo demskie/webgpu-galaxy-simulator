@@ -30,8 +30,6 @@ export class GalaxySimulator {
 	readonly ui: UIManager;
 	readonly particles: Particles;
 
-	private readonly cachedBloomParamsArray = new Float32Array(4);
-
 	constructor(
 		canvas: HTMLCanvasElement,
 		device: GPUDevice,
@@ -127,11 +125,6 @@ export class GalaxySimulator {
 	}
 
 	private updateUniformData() {
-		if (!!!this.resources) {
-			console.warn("Resources not initialized yet, skipping uniform update");
-			return;
-		}
-
 		this.particleRenderer.updateUniforms();
 
 		// Update compute uniforms via Particles API
@@ -145,53 +138,30 @@ export class GalaxySimulator {
 
 	private getGalaxyCallbacks(): GalaxyCallbacks {
 		return {
-			onToneParametersChanged: () => {
-				this.accumulator.requestFullRenderNextFrame();
-				this.updateToneParameters();
-			},
-			onBloomParametersChanged: () => {
-				this.accumulator.requestFullRenderNextFrame();
-				this.updateBloomParameters();
-			},
-			onUniformDataChanged: () => {
-				this.accumulator.requestFullRenderNextFrame();
-				this.updateUniformData();
-			},
-			onOverdrawDebugChanged: () => {
-				this.accumulator.requestFullRenderNextFrame();
-				this.handleOverdrawDebugChange();
-			},
-			onParticleSizeChanged: () => {
-				this.accumulator.requestFullRenderNextFrame();
-				this.handleParticleSizeChange();
-			},
+			onToneParametersChanged: () => this.requestToneParameterUpdate(),
+			onBloomParametersChanged: () => this.requestBloomParameterUpdate(),
+			onUniformDataChanged: () => this.requestUniformDataUpdate(),
+			onOverdrawDebugChanged: () => this.handleOverdrawDebugChange(),
+			onParticleSizeChanged: () => this.handleParticleSizeChange(),
 			onAdvancedOptionsChanged: () => this.handleAdvancedOptionsChange(),
 		};
 	}
 
 	private updateToneParameters() {
-		const toneArray = this.galaxy.getToneParametersArray();
-		if (!toneArray || !toneArray.buffer) {
-			throw new Error("getToneParametersArray returned null or invalid array");
-		}
 		this.resources.toneMapResources.setup();
-		this.device.queue.writeBuffer(this.resources.toneMapResources.toneParamBuffer!, 0, toneArray.buffer);
 	}
 
 	private updateBloomParameters() {
-		this.cachedBloomParamsArray[0] = this.galaxy.bloomThreshold;
-		this.cachedBloomParamsArray[1] = 0;
-		this.cachedBloomParamsArray[2] = 0;
-		this.cachedBloomParamsArray[3] = 0;
 		this.resources.bloomResources.setup();
-		this.device.queue.writeBuffer(this.resources.bloomResources.bloomParamsBuffer!, 0, this.cachedBloomParamsArray);
 	}
 
 	private handleOverdrawDebugChange() {
+		this.resetAccumulationBuffers(false);
 		this.resources.setup();
 	}
 
 	private handleParticleSizeChange() {
+		this.resetAccumulationBuffers();
 		this.updateUniformData();
 		this.particles.update();
 	}
@@ -201,6 +171,29 @@ export class GalaxySimulator {
 			this.performanceProfiler.create();
 		} else {
 			this.performanceProfiler.destroy();
+		}
+	}
+
+	private requestToneParameterUpdate() {
+		this.resetAccumulationBuffers();
+		this.updateToneParameters();
+	}
+
+	private requestBloomParameterUpdate() {
+		this.resetAccumulationBuffers();
+		this.updateBloomParameters();
+	}
+
+	private requestUniformDataUpdate() {
+		this.resetAccumulationBuffers();
+		this.updateUniformData();
+	}
+
+	private resetAccumulationBuffers(immediate: boolean = true) {
+		this.accumulator.requestFullRenderNextFrame();
+		this.resources.accumulationResources.requestForceClear();
+		if (immediate) {
+			this.resources.accumulationResources.setup();
 		}
 	}
 

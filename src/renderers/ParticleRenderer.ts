@@ -95,7 +95,7 @@ export class ParticleRenderer {
 				usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
 			});
 			recreated = true;
-			console.log(`Particle storage buffer (empty) created. Size: ${size}`);
+			console.log(`🔴 Particle storage buffer (empty) created. Size: ${size}`);
 		}
 		return recreated;
 	}

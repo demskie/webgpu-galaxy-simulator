@@ -85,7 +85,7 @@ export class RenderingManager {
 		}
 
 		// Update accumulation weights for temporal averaging before encoding commands.
-		this.updateAccumulationWeights();
+		this.resources().accumulationResources.updateWeightsBuffer();
 
 		// Create command encoder for recording GPU commands.
 		const commandEncoder = this.device.createCommandEncoder();
@@ -252,10 +252,7 @@ export class RenderingManager {
 			}
 
 			// Tone mapping pass - combine HDR image with bloom and map to LDR for display.
-			if (
-				!!this.resources().toneMapResources.toneMapPipeline &&
-				!!this.resources().toneMapResources.toneMapBindGroup
-			) {
+			if (!!this.resources().toneMapResources.toneMapPipeline && !!this.resources().toneMapResources.toneMapBindGroup) {
 				const tonePassDesc: GPURenderPassDescriptor = {
 					colorAttachments: [
 						{
@@ -306,50 +303,5 @@ export class RenderingManager {
 		} catch {
 			return true;
 		}
-	}
-
-	// Update the weights used for temporal accumulation averaging. This calculates
-	// how much each accumulated frame contributes to the final image based on the
-	// current temporal accumulation setting. Uses equal weighting for simplicity.
-	private updateAccumulationWeights() {
-		if (!!!this.resources().accumulationResources.accumWeightsBuffer) return;
-
-		// Clear weights array.
-		this.tmpWeights.fill(0);
-
-		const n = this.accumulator().getEffectiveTemporalAccumulation();
-		const framesSinceBufferClear = this.accumulator().getFramesSinceBufferClear();
-
-		if (n >= 1) {
-			// Only weight frames that have been rendered since buffer clear
-			// This prevents averaging with empty black frames after preset switches
-			const validFrames = Math.min(n, framesSinceBufferClear);
-
-			if (validFrames > 0) {
-				// Each valid frame gets weight 16/validFrames
-				// This ensures total weight is always 16 for consistent brightness
-				const sliceWeight = 16 / validFrames;
-				for (let i = 0; i < validFrames; i++) {
-					const idx = (this.resources().accumulationResources.accumWriteIndex - i + 16) & 15;
-					this.tmpWeights[idx] = sliceWeight;
-				}
-			}
-		}
-
-		// Pack 16 floats into cached buffer for proper uniform buffer alignment.
-		for (let i = 0; i < 16; i++) {
-			this.cachedPackedWeights[i] = this.tmpWeights[i];
-		}
-		if (!!!this.resources().accumulationResources.accumWeightsBuffer) {
-			throw new Error("accumWeightsBuffer is null in updateAccumulationWeights");
-		}
-		if (!!!this.cachedPackedWeights || !this.cachedPackedWeights.buffer) {
-			throw new Error("cachedPackedWeights is null or invalid in updateAccumulationWeights");
-		}
-		this.device.queue.writeBuffer(
-			this.resources().accumulationResources.accumWeightsBuffer!,
-			0,
-			this.cachedPackedWeights.buffer
-		);
 	}
 }

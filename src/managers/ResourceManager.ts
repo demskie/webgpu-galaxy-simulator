@@ -90,21 +90,14 @@ export class ResourceManager {
 	// or when parameters affecting resource dimensions are updated.
 	setup() {
 		console.log("🔴 Creating post processing resources (EXPENSIVE!)...");
-
 		this.particleResources.setup();
 		this.drawOverdrawResources.setup();
 		this.msaaResources.setup();
 		this.hdrResources.setup();
-
 		this.countOverdrawResources.setup();
 		this.drawOverdrawResources.setup();
-
 		this.bloomResources.setup();
-		this.bloomResources.updateBloomParamsBuffer(this.galaxy().bloomThreshold);
-
 		this.toneMapResources.setup();
-		this.toneMapResources.updateToneParamBuffer();
-
 		this.accumulationResources.setup();
 	}
 

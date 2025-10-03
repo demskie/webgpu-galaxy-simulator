@@ -25,16 +25,41 @@ export class CountOverdrawResources {
 	}
 
 	setup() {
+		// Skip setup entirely when overdraw is globally disabled via sentinel
+		if (this.galaxy().maxOverdraw >= 4096) return;
+
 		const [width, height] = [this.canvas.width, this.canvas.height];
-		if (width == this.lastDims.width && height == this.lastDims.height) return;
-		this.lastDims = { width, height };
-		this.createOverdrawCountBuffer(width, height);
+		const dimsChanged = width !== this.lastDims.width || height !== this.lastDims.height;
+
+		// (Re)create buffers when dimensions change or resources are missing
+		if (dimsChanged || !!!this.overdrawCountBuffer) {
+			this.createOverdrawCountBuffer(width, height);
+		}
+
+		// Ensure pipeline exists
 		if (!!!this.clearOverdrawPipeline) this.createClearOverdrawPipeline();
-		this.createClearOverdrawDimensionsBuffer(width, height);
-		this.createClearOverdrawBindGroup(width, height);
+
+		// Create or update dimensions uniform buffer
+		if (!!!this.clearOverdrawDimensionsBuffer) {
+			this.createClearOverdrawDimensionsBuffer(width, height);
+		} else if (dimsChanged) {
+			this.updateClearOverdrawDimensionsBuffer(width, height);
+		}
+
+		// Ensure bind group references current buffers
+		if (!!!this.clearOverdrawBindGroup || dimsChanged) {
+			this.createClearOverdrawBindGroup(width, height);
+		}
+
+		this.lastDims = { width, height };
 	}
 
-	createOverdrawCountBuffer(width: number, height: number) {
+	getOverdrawCountBuffer = () => this.overdrawCountBuffer ?? this.createOverdrawCountBuffer(this.canvas.width, this.canvas.height); // prettier-ignore
+	getClearOverdrawPipeline = () => this.clearOverdrawPipeline ?? this.createClearOverdrawPipeline();
+	getClearOverdrawDimensionsBuffer = () => this.clearOverdrawDimensionsBuffer ?? this.createClearOverdrawDimensionsBuffer(this.canvas.width, this.canvas.height); // prettier-ignore
+	getClearOverdrawBindGroup = () => this.clearOverdrawBindGroup ?? this.createClearOverdrawBindGroup(this.canvas.width, this.canvas.height); // prettier-ignore
+
+	createOverdrawCountBuffer(width: number, height: number): GPUBuffer {
 		const requiredSize = width * height * 4; // 4 bytes per u32
 		this.overdrawCountBuffer?.destroy();
 		console.log(`🔴 Creating overdraw count buffer (EXPENSIVE!) - Size: ${requiredSize} bytes`);
@@ -42,9 +67,10 @@ export class CountOverdrawResources {
 			size: requiredSize,
 			usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
 		});
+		return this.overdrawCountBuffer;
 	}
 
-	createClearOverdrawPipeline() {
+	createClearOverdrawPipeline(): GPUComputePipeline {
 		console.log("🔴 Creating clear overdraw pipeline");
 		const shaderModule = this.device.createShaderModule({ code: overdrawClearCompShader });
 		const bindGroupLayout = this.device.createBindGroupLayout({
@@ -59,22 +85,27 @@ export class CountOverdrawResources {
 			layout: pipelineLayout,
 			compute: { module: shaderModule, entryPoint: "main" },
 		});
+		return this.clearOverdrawPipeline;
 	}
 
-	createClearOverdrawDimensionsBuffer(width: number, height: number) {
+	createClearOverdrawDimensionsBuffer(width: number, height: number): GPUBuffer {
 		this.clearOverdrawDimensionsBuffer = this.device.createBuffer({
 			size: 16,
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 		});
 		this.updateClearOverdrawDimensionsBuffer(width, height);
+		return this.clearOverdrawDimensionsBuffer;
 	}
 
 	updateClearOverdrawDimensionsBuffer(width: number, height: number) {
-		if (!!!this.clearOverdrawDimensionsBuffer) return this.createClearOverdrawDimensionsBuffer(width, height);
+		if (!!!this.clearOverdrawDimensionsBuffer) {
+			this.createClearOverdrawDimensionsBuffer(width, height);
+			return;
+		}
 		this.device.queue.writeBuffer(this.clearOverdrawDimensionsBuffer!, 0, new Float32Array([width, height, 0, 0]));
 	}
 
-	createClearOverdrawBindGroup(width: number, height: number) {
+	createClearOverdrawBindGroup(width: number, height: number): GPUBindGroup {
 		if (!!!this.clearOverdrawPipeline) this.createClearOverdrawPipeline();
 		if (!!!this.overdrawCountBuffer) this.createOverdrawCountBuffer(width, height);
 		if (!!!this.clearOverdrawDimensionsBuffer) this.createClearOverdrawDimensionsBuffer(width, height);
@@ -85,6 +116,7 @@ export class CountOverdrawResources {
 				{ binding: 1, resource: { buffer: this.clearOverdrawDimensionsBuffer! } },
 			],
 		});
+		return this.clearOverdrawBindGroup;
 	}
 
 	clear(commandEncoder: GPUCommandEncoder, width: number, height: number) {
@@ -92,6 +124,8 @@ export class CountOverdrawResources {
 		if (this.galaxy().maxOverdraw >= 4096) return;
 		if (!!!this.clearOverdrawPipeline) this.createClearOverdrawPipeline();
 		if (!!!this.clearOverdrawBindGroup) this.createClearOverdrawBindGroup(width, height);
+		// Always update dimensions buffer to match provided size
+		this.updateClearOverdrawDimensionsBuffer(width, height);
 		const computeEncoder = commandEncoder.beginComputePass();
 		computeEncoder.setPipeline(this.clearOverdrawPipeline!);
 		computeEncoder.setBindGroup(0, this.clearOverdrawBindGroup!);

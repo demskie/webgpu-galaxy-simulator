@@ -29,7 +29,13 @@ export class HDRResources {
 		this.lastDims = { width, height };
 	}
 
-	createHDRTexture(width: number, height: number) {
+	getHDRTexture = () => this.hdrTexture ?? this.createHDRTexture(this.canvas.width, this.canvas.height);
+	getHDRTextureView = () => this.hdrTextureView ?? this.createHDRTextureView(this.canvas.width, this.canvas.height);
+
+	createHDRTexture(width: number, height: number): GPUTexture {
+		if (this.hdrTexture && this.lastDims.width === width && this.lastDims.height === height) {
+			return this.hdrTexture;
+		}
 		console.log("🔴 Creating HDR texture (EXPENSIVE!)");
 		this.hdrTexture?.destroy();
 		this.hdrTexture = this.device.createTexture({
@@ -38,11 +44,16 @@ export class HDRResources {
 			format: "rgba16float",
 			usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
 		});
+		return this.hdrTexture;
 	}
 
-	createHDRTextureView(width: number, height: number) {
+	createHDRTextureView(width: number, height: number): GPUTextureView {
+		if (this.hdrTextureView && this.lastDims.width === width && this.lastDims.height === height) {
+			return this.hdrTextureView;
+		}
 		if (!!!this.hdrTexture) this.createHDRTexture(width, height);
 		this.hdrTextureView = this.hdrTexture!.createView();
+		return this.hdrTextureView;
 	}
 
 	destroy() {

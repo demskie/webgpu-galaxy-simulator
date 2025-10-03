@@ -42,6 +42,9 @@ export class FPSManager {
 			deltaTime = 16.67; // Default to 60 FPS for first frame (1000ms / 60fps)
 		}
 
+		// Always clamp delta to >= 0 to avoid negative values from clock skew
+		deltaTime = Math.max(0, deltaTime);
+
 		// Check if frame rate limiting is disabled (unlocked at 120 FPS)
 		const isUnlocked = maxFrameRate >= 120;
 

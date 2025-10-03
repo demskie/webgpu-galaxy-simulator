@@ -36,6 +36,9 @@ export class BloomResources {
 
 	// track last dimensions for reuse optimization
 	private lastDims = { width: -1, height: -1 };
+	private readonly cachedBloomParams = new Float32Array(4);
+	private bloomParamsInitialized = false;
+	private lastBloomThreshold = Number.NaN;
 
 	constructor(simulator: GalaxySimulator) {
 		this.device = simulator.device;
@@ -59,7 +62,7 @@ export class BloomResources {
 			this.createBloomTextures(width, height);
 
 		if (!!!this.bloomParamsBuffer) this.createBloomParamsBuffer();
-		this.updateBloomParamsBuffer(this.galaxy().bloomThreshold);
+		this.updateBloomParamsBuffer();
 
 		if (!!!this.bloomBlurHParamsBuffer) this.createBloomBlurHParamsBuffer();
 		if (!!!this.bloomBlurVParamsBuffer) this.createBloomBlurVParamsBuffer();
@@ -79,7 +82,27 @@ export class BloomResources {
 		this.lastDims = { width, height };
 	}
 
-	createBloomExtractPipeline() {
+	getBloomExtractPipeline = () => this.bloomExtractPipeline ?? this.createBloomExtractPipeline();
+	getBloomBlurPipeline = () => this.bloomBlurPipeline ?? this.createBloomBlurPipeline();
+	getBloomTextures = () => !!!this.bloomTexture1 && !!!this.bloomTexture2 ? { bloomTexture1: this.bloomTexture1, bloomTexture2: this.bloomTexture2 } : this.createBloomTextures(this.canvas.width, this.canvas.height); // prettier-ignore
+	getBloomParamsBuffer = () => this.bloomParamsBuffer ?? this.createBloomParamsBuffer();
+	getBloomBlurHParamsBuffer = () => this.bloomBlurHParamsBuffer ?? this.createBloomBlurHParamsBuffer();
+	getBloomBlurVParamsBuffer = () => this.bloomBlurVParamsBuffer ?? this.createBloomBlurVParamsBuffer();
+	getBloomExtractBindGroup = () =>
+		this.bloomExtractBindGroup ??
+		this.createBloomExtractBindGroup(
+			this.resources().toneMapResources,
+			this.resources().hdrResources,
+			this.canvas.width,
+			this.canvas.height
+		);
+	getBloomBlurBindGroups = () => {
+		if (!!!this.bloomBlurHBindGroup || !!!this.bloomBlurVBindGroup)
+			this.createBloomBlurBindGroups(this.resources().toneMapResources, this.canvas.width, this.canvas.height);
+		return { bloomBlurHBindGroup: this.bloomBlurHBindGroup!, bloomBlurVBindGroup: this.bloomBlurVBindGroup! };
+	};
+
+	createBloomExtractPipeline(): GPURenderPipeline {
 		const bindGroupLayout = this.device.createBindGroupLayout({
 			entries: [
 				{ binding: 0, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
@@ -97,9 +120,10 @@ export class BloomResources {
 			},
 			primitive: { topology: "triangle-list" },
 		});
+		return this.bloomExtractPipeline;
 	}
 
-	createBloomBlurPipeline() {
+	createBloomBlurPipeline(): GPURenderPipeline {
 		const bindGroupLayout = this.device.createBindGroupLayout({
 			entries: [
 				{ binding: 0, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
@@ -117,9 +141,10 @@ export class BloomResources {
 			},
 			primitive: { topology: "triangle-list" },
 		});
+		return this.bloomBlurPipeline;
 	}
 
-	createBloomTextures(width: number, height: number) {
+	createBloomTextures(width: number, height: number): { bloomTexture1: GPUTexture; bloomTexture2: GPUTexture } {
 		console.log("🔴 Creating bloom textures (EXPENSIVE!)");
 		this.bloomTexture1?.destroy();
 		this.bloomTexture1 = this.device.createTexture({
@@ -135,35 +160,53 @@ export class BloomResources {
 			usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
 		});
 		this.bloomTextureView2 = this.bloomTexture2.createView();
+		return { bloomTexture1: this.bloomTexture1, bloomTexture2: this.bloomTexture2 };
 	}
 
-	createBloomParamsBuffer() {
+	createBloomParamsBuffer(): GPUBuffer {
 		this.bloomParamsBuffer = this.device.createBuffer({
 			size: 16, // vec4<f32>
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 		});
-		this.updateBloomParamsBuffer(this.galaxy().bloomThreshold);
+		this.bloomParamsInitialized = false;
+		this.lastBloomThreshold = Number.NaN;
+		this.updateBloomParamsBuffer();
+		return this.bloomParamsBuffer;
 	}
 
-	updateBloomParamsBuffer(bloomThreshold: number) {
-		if (!!!this.bloomParamsBuffer) return this.createBloomParamsBuffer();
-		this.device.queue.writeBuffer(this.bloomParamsBuffer!, 0, new Float32Array([bloomThreshold, 0, 0, 0]));
+	updateBloomParamsBuffer(bloomThreshold?: number) {
+		const threshold = bloomThreshold ?? this.galaxy().bloomThreshold;
+		if (!!!this.bloomParamsBuffer) {
+			this.createBloomParamsBuffer();
+			return;
+		}
+		if (!this.bloomParamsInitialized || threshold !== this.lastBloomThreshold) {
+			this.cachedBloomParams[0] = threshold;
+			this.cachedBloomParams[1] = 0;
+			this.cachedBloomParams[2] = 0;
+			this.cachedBloomParams[3] = 0;
+			this.device.queue.writeBuffer(this.bloomParamsBuffer!, 0, this.cachedBloomParams);
+			this.lastBloomThreshold = threshold;
+			this.bloomParamsInitialized = true;
+		}
 	}
 
-	createBloomBlurHParamsBuffer() {
+	createBloomBlurHParamsBuffer(): GPUBuffer {
 		this.bloomBlurHParamsBuffer = this.device.createBuffer({
 			size: 16,
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 		});
 		this.device.queue.writeBuffer(this.bloomBlurHParamsBuffer, 0, new Float32Array([1, 0, 0, 0]));
+		return this.bloomBlurHParamsBuffer;
 	}
 
-	createBloomBlurVParamsBuffer() {
+	createBloomBlurVParamsBuffer(): GPUBuffer {
 		this.bloomBlurVParamsBuffer = this.device.createBuffer({
 			size: 16,
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 		});
 		this.device.queue.writeBuffer(this.bloomBlurVParamsBuffer, 0, new Float32Array([0, 0, 0, 0]));
+		return this.bloomBlurVParamsBuffer;
 	}
 
 	createBloomExtractBindGroup(
@@ -171,7 +214,7 @@ export class BloomResources {
 		hdrResources: HDRResources,
 		width: number,
 		height: number
-	) {
+	): GPUBindGroup {
 		if (!!!this.bloomExtractPipeline) this.createBloomExtractPipeline();
 		if (!!!this.bloomParamsBuffer) this.createBloomParamsBuffer();
 		if (!!!toneMapResources.toneMapSampler) toneMapResources.createToneMapSampler();
@@ -184,9 +227,14 @@ export class BloomResources {
 				{ binding: 2, resource: { buffer: this.bloomParamsBuffer! } },
 			],
 		});
+		return this.bloomExtractBindGroup;
 	}
 
-	createBloomBlurBindGroups(toneMapResources: ToneMapResources, width: number, height: number) {
+	createBloomBlurBindGroups(
+		toneMapResources: ToneMapResources,
+		width: number,
+		height: number
+	): { bloomBlurHBindGroup: GPUBindGroup; bloomBlurVBindGroup: GPUBindGroup } {
 		if (!!!this.bloomBlurPipeline) this.createBloomBlurPipeline();
 		if (!!!this.bloomBlurHParamsBuffer) this.createBloomBlurHParamsBuffer();
 		if (!!!this.bloomBlurVParamsBuffer) this.createBloomBlurVParamsBuffer();
@@ -209,6 +257,7 @@ export class BloomResources {
 				{ binding: 2, resource: { buffer: this.bloomBlurVParamsBuffer! } },
 			],
 		});
+		return { bloomBlurHBindGroup: this.bloomBlurHBindGroup, bloomBlurVBindGroup: this.bloomBlurVBindGroup };
 	}
 
 	destroy() {
