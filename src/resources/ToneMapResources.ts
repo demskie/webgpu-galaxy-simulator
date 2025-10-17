@@ -1,8 +1,6 @@
 import { Galaxy } from "../entities/Galaxy";
 import { GalaxySimulator } from "../GalaxySimulator";
 import { ResourceManager } from "../managers/ResourceManager";
-import { HDRResources } from "./HDRResources";
-import { BloomResources } from "./BloomResources";
 
 import tonemapFragWGSL from "../shaders/postprocessing/tonemap.frag.wgsl";
 import fullscreenVertWGSL from "../shaders/postprocessing/fullscreen.vert.wgsl";
@@ -14,12 +12,11 @@ export class ToneMapResources {
 	galaxy: () => Galaxy;
 	resources: () => ResourceManager;
 
-	toneMapPipeline: GPURenderPipeline | null = null;
-	toneParamBuffer: GPUBuffer | null = null;
-	toneMapSampler: GPUSampler | null = null;
-	toneMapBindGroup: GPUBindGroup | null = null;
+	private toneMapPipeline: GPURenderPipeline | null = null;
+	private toneParamBuffer: GPUBuffer | null = null;
+	private toneMapSampler: GPUSampler | null = null;
+	private toneMapBindGroup: GPUBindGroup | null = null;
 
-	private lastDims = { width: -1, height: -1 };
 	private readonly cachedToneParams = new Float32Array(9);
 	private readonly lastToneParams = new Float32Array(9);
 	private toneParamsInitialized = false;
@@ -33,24 +30,18 @@ export class ToneMapResources {
 	}
 
 	setup() {
-		const [width, height] = [this.canvas.width, this.canvas.height];
-		if (!!!this.toneMapPipeline) this.createToneMapPipeline();
-		if (!!!this.toneParamBuffer) this.createToneParamBuffer();
-		if (!!!this.toneMapSampler) this.createToneMapSampler();
-		if (!!!this.toneMapBindGroup || width != this.lastDims.width || height != this.lastDims.height) {
-			this.createToneMapBindGroup(this.resources().hdrResources, this.resources().bloomResources, width, height);
-		}
-
 		this.updateToneParamBuffer();
-		this.lastDims = { width, height };
 	}
 
-	getToneMapPipeline = () => this.toneMapPipeline ?? this.createToneMapPipeline();
-	getToneParamBuffer = () => this.toneParamBuffer ?? this.createToneParamBuffer();
-	getToneMapSampler = () => this.toneMapSampler ?? this.createToneMapSampler();
-	getToneMapBindGroup = () => this.toneMapBindGroup ?? this.createToneMapBindGroup(this.resources().hdrResources, this.resources().bloomResources, this.canvas.width, this.canvas.height); // prettier-ignore
+	markBloomTexturesDirty() {
+		this.toneMapBindGroup = null;
+	}
 
-	createToneMapPipeline(): GPURenderPipeline {
+	////////////////////////////////////////////////////////////
+
+	getToneMapPipeline = () => this.toneMapPipeline ?? this.createToneMapPipeline();
+
+	private createToneMapPipeline(): GPURenderPipeline {
 		const bindGroupLayout = this.device.createBindGroupLayout({
 			entries: [
 				{ binding: 0, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
@@ -60,6 +51,7 @@ export class ToneMapResources {
 			],
 		});
 		this.toneMapPipeline = this.device.createRenderPipeline({
+			label: "toneMapPipeline",
 			layout: this.device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] }),
 			vertex: { module: this.device.createShaderModule({ code: fullscreenVertWGSL }), entryPoint: "main" },
 			fragment: {
@@ -72,8 +64,13 @@ export class ToneMapResources {
 		return this.toneMapPipeline;
 	}
 
-	createToneParamBuffer(): GPUBuffer {
+	////////////////////////////////////////////////////////////
+
+	getToneParamBuffer = () => this.toneParamBuffer ?? this.createToneParamBuffer();
+
+	private createToneParamBuffer(): GPUBuffer {
 		this.toneParamBuffer = this.device.createBuffer({
+			label: "toneParamBuffer",
 			size: 36, // 9 floats
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 		});
@@ -83,43 +80,55 @@ export class ToneMapResources {
 	}
 
 	updateToneParamBuffer(): GPUBuffer {
-		if (!!!this.toneParamBuffer) this.createToneParamBuffer();
+		this.toneParamBuffer = this.getToneParamBuffer();
 		this.populateToneParams(this.cachedToneParams);
 		if (!this.toneParamsInitialized || this.toneParamsChanged()) {
-			this.device.queue.writeBuffer(this.toneParamBuffer!, 0, this.cachedToneParams);
+			this.device.queue.writeBuffer(this.toneParamBuffer, 0, this.cachedToneParams);
 			this.lastToneParams.set(this.cachedToneParams);
 			this.toneParamsInitialized = true;
 		}
-		return this.toneParamBuffer!;
+		return this.toneParamBuffer;
 	}
 
-	createToneMapSampler(): GPUSampler {
-		this.toneMapSampler = this.device.createSampler({ magFilter: "linear", minFilter: "linear" });
+	////////////////////////////////////////////////////////////
+
+	getToneMapSampler = () => this.toneMapSampler ?? this.createToneMapSampler();
+
+	private createToneMapSampler(): GPUSampler {
+		this.toneMapSampler = this.device.createSampler({
+			label: "toneMapSampler",
+			magFilter: "linear",
+			minFilter: "linear",
+		});
 		return this.toneMapSampler;
 	}
 
-	createToneMapBindGroup(
-		hdrResources: HDRResources,
-		bloomResources: BloomResources,
-		width: number,
-		height: number
-	): GPUBindGroup {
-		if (!!!this.toneMapPipeline) this.createToneMapPipeline();
-		if (!!!this.toneMapSampler) this.createToneMapSampler();
-		if (!!!this.toneParamBuffer) this.createToneParamBuffer();
-		if (!!!hdrResources.hdrTextureView) hdrResources.createHDRTextureView(width, height);
-		if (!!!bloomResources.bloomTextureView1) bloomResources.createBloomTextures(width, height);
+	////////////////////////////////////////////////////////////
+
+	getToneMapBindGroup = (width: number, height: number) =>
+		!!!this.toneMapBindGroup ||
+		this.lastToneMapBindGroupDims.width !== width ||
+		this.lastToneMapBindGroupDims.height !== height
+			? this.createToneMapBindGroup(width, height)
+			: this.toneMapBindGroup;
+
+	private createToneMapBindGroup(width: number, height: number): GPUBindGroup {
 		this.toneMapBindGroup = this.device.createBindGroup({
-			layout: this.toneMapPipeline!.getBindGroupLayout(0),
+			label: "toneMapBindGroup",
+			layout: this.getToneMapPipeline().getBindGroupLayout(0),
 			entries: [
-				{ binding: 0, resource: this.toneMapSampler! },
-				{ binding: 1, resource: hdrResources.hdrTextureView! },
-				{ binding: 2, resource: { buffer: this.toneParamBuffer! } },
-				{ binding: 3, resource: bloomResources.bloomTextureView1! },
+				{ binding: 0, resource: this.getToneMapSampler() },
+				{ binding: 1, resource: this.resources().hdrResources.getHDRTextureView(width, height) },
+				{ binding: 2, resource: { buffer: this.getToneParamBuffer() } },
+				{ binding: 3, resource: this.resources().bloomResources.getBloomTextures(width, height).bloomTextureView1 },
 			],
 		});
-		return this.toneMapBindGroup!;
+		return this.toneMapBindGroup;
 	}
+
+	private lastToneMapBindGroupDims = { width: -1, height: -1 };
+
+	////////////////////////////////////////////////////////////
 
 	private populateToneParams(target: Float32Array) {
 		target[0] = this.galaxy().exposure;
@@ -140,6 +149,8 @@ export class ToneMapResources {
 		}
 		return false;
 	}
+
+	////////////////////////////////////////////////////////////
 
 	destroy() {
 		console.log("🔴 Destroying tone map resources");

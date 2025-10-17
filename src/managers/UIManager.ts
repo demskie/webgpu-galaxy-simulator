@@ -299,8 +299,7 @@ export class UIManager {
 				"overdrawIntensitySliderContainer"
 			) as HTMLElement | null;
 			if (moSlider && moLabel) {
-				const isDisabled =
-					moSlider.value === "4096" || (!!this.simulator && this.simulator.galaxy.maxOverdraw >= 4096);
+				const isDisabled = moSlider.value === "4096" || (!!this.simulator && this.simulator.galaxy.maxOverdraw >= 4096);
 				moLabel.innerHTML = isDisabled ? "disabled" : moSlider.value;
 				if (overdrawCheckbox && overdrawIntensityContainer) {
 					overdrawCheckbox.disabled = isDisabled;
@@ -730,7 +729,11 @@ export class UIManager {
 		slider.oninput = () => {
 			label.innerHTML = slider.value;
 			this.updateKey(prop, parseFloat(slider.value));
-			this.simulator!.updateParticles();
+
+			// Only regenerate particles for shape parameters that affect particle distribution
+			if (this.shapeParameters.has(prop)) {
+				this.simulator!.updateParticles();
+			}
 
 			// Check for modifications
 			this.checkForModifications();

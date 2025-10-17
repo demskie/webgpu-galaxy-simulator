@@ -5,7 +5,7 @@ import { CameraManager } from "../managers/CameraManager";
 import { ResourceManager } from "../managers/ResourceManager";
 import { writeGalaxyToDataView } from "../utils/GalaxyUniformPacker";
 
-import { UNIFORM_LAYOUT } from "../constants/uniformLayout";
+import { UNIFORM_LAYOUT } from "../constants/UniformLayout";
 
 export class ParticleRenderer {
 	private readonly device: GPUDevice;
@@ -14,6 +14,8 @@ export class ParticleRenderer {
 	private readonly camera: () => CameraManager;
 	private readonly galaxy: () => Galaxy;
 	private readonly resources: () => ResourceManager;
+	private lastParticleStorageBuffer: GPUBuffer | null = null;
+	private lastParticleStorageBufferSize = 0;
 
 	// Temporary ArrayBuffer for staging uniform data before GPU upload.
 	private readonly uniformDataArray = new ArrayBuffer(UNIFORM_LAYOUT.totalSize);
@@ -73,8 +75,10 @@ export class ParticleRenderer {
 		dataView.setFloat32(UNIFORM_LAYOUT.canvasOffset + 8, 0.0, true); // padding1
 		dataView.setFloat32(UNIFORM_LAYOUT.canvasOffset + 12, 0.0, true); // padding2
 
-		this.resources().particleResources.setup();
-		this.device.queue.writeBuffer(this.resources().particleResources.uniformBuffer!, 0, this.uniformDataArray);
+		const particleResources = this.resources().particleResources;
+		particleResources.setup();
+		const uniformBuffer = particleResources.getUniformBuffer();
+		this.device.queue.writeBuffer(uniformBuffer, 0, this.uniformDataArray);
 	}
 
 	// Allocates or resizes the particle storage buffer for the given star count.
@@ -82,21 +86,11 @@ export class ParticleRenderer {
 	allocateEmptyBuffer(count: number): boolean {
 		const particleDataStride = 48;
 		const size = count * particleDataStride;
-		let recreated = false;
-		if (
-			!!!this.resources().particleResources.particleStorageBuffer ||
-			this.resources().particleResources.particleStorageBuffer!.size < size
-		) {
-			this.resources().particleResources.particleStorageBuffer?.destroy();
-			console.log(`🔴 Creating particle storage buffer (EXPENSIVE!) - Size: ${size} bytes`);
-			this.resources().particleResources.particleStorageBuffer = this.device.createBuffer({
-				label: "particleStorageBuffer",
-				size,
-				usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
-			});
-			recreated = true;
-			console.log(`🔴 Particle storage buffer (empty) created. Size: ${size}`);
-		}
+		const particleResources = this.resources().particleResources;
+		const buffer = particleResources.getParticleStorageBuffer(size);
+		const recreated = buffer !== this.lastParticleStorageBuffer;
+		this.lastParticleStorageBuffer = buffer;
+		this.lastParticleStorageBufferSize = buffer.size;
 		return recreated;
 	}
 
@@ -107,32 +101,35 @@ export class ParticleRenderer {
 	}
 
 	// Renders particles to the provided render pass
-	public render(passEncoder: GPURenderPassEncoder, starCount: number) {
-		this.resources().particleResources.setup();
+	render(passEncoder: GPURenderPassEncoder, starCount: number) {
+		const particleResources = this.resources().particleResources;
+		particleResources.setup();
 		const overdrawDisabled = this.galaxy().maxOverdraw >= 4096;
 		const pipeline = (() => {
 			if (this.galaxy().overdrawDebug && !overdrawDisabled)
-				return this.resources().drawOverdrawResources.overdrawPipeline;
-			if (overdrawDisabled) return this.resources().particleResources.particlePipelineNoOverdraw;
-			return this.resources().particleResources.particlePipeline;
+				return this.resources().drawOverdrawResources.getOverdrawPipeline();
+			if (overdrawDisabled) return particleResources.getParticlePipelineNoOverdraw();
+			return particleResources.getParticlePipeline();
 		})();
 
-		passEncoder.setPipeline(pipeline!);
+		passEncoder.setPipeline(pipeline);
 
-		const bg = overdrawDisabled
-			? this.resources().particleResources.particleBindGroupNoOverdraw
-			: this.resources().particleResources.particleBindGroup;
-		if (!bg) {
+		const bindGroup = overdrawDisabled
+			? particleResources.getParticleBindGroupNoOverdraw()
+			: particleResources.getParticleBindGroup(this.canvas.width, this.canvas.height);
+		if (!!!bindGroup) {
 			console.warn("Particle bind group not ready");
 			return;
 		}
-		passEncoder.setBindGroup(0, bg);
-		passEncoder.setVertexBuffer(0, this.resources().particleResources.quadVertexBuffer!);
+		passEncoder.setBindGroup(0, bindGroup);
+		passEncoder.setVertexBuffer(0, particleResources.getQuadVertexBuffer());
 		passEncoder.draw(6, starCount);
 	}
 
 	// Destroys all managed GPU buffers to free resources.
 	destroy() {
 		this.resources().particleResources.destroy();
+		this.lastParticleStorageBuffer = null;
+		this.lastParticleStorageBufferSize = 0;
 	}
 }

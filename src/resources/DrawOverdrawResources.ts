@@ -1,7 +1,6 @@
 import { Galaxy } from "../entities/Galaxy";
 import { GalaxySimulator } from "../GalaxySimulator";
 import { ResourceManager } from "../managers/ResourceManager";
-import { ParticleResources } from "./ParticleResources";
 
 import particleVertShader from "../shaders/core/particle.vert.wgsl";
 import overdrawFragShader from "../shaders/debug/overdraw.frag.wgsl";
@@ -12,7 +11,7 @@ export class DrawOverdrawResources {
 	galaxy: () => Galaxy;
 	resources: () => ResourceManager;
 
-	overdrawPipeline: GPURenderPipeline | null = null;
+	private overdrawPipeline: GPURenderPipeline | null = null;
 
 	constructor(simulator: GalaxySimulator) {
 		this.device = simulator.device;
@@ -21,19 +20,17 @@ export class DrawOverdrawResources {
 		this.resources = () => simulator.resources;
 	}
 
-	setup() {
-		if (this.galaxy().maxOverdraw >= 4096) return;
-		const pr = this.resources().particleResources;
-		if (!!!pr.particleBindGroupLayout) pr.createParticleBindGroupLayout();
-		if (!!!pr.particlePipelineLayout) pr.createParticlePipelineLayout();
-		if (!!!this.overdrawPipeline) this.createOverdrawPipeline(pr);
-	}
+	setup() {}
 
-	createOverdrawPipeline(particleResources: ParticleResources): GPURenderPipeline {
-		if (!!!particleResources.particlePipelineLayout) particleResources.createParticlePipelineLayout();
+	////////////////////////////////////////////////////////////
+
+	getOverdrawPipeline = () => this.overdrawPipeline ?? this.createOverdrawPipeline();
+
+	private createOverdrawPipeline(): GPURenderPipeline {
+		console.log("🔴 Creating overdraw pipeline");
 		this.overdrawPipeline = this.device.createRenderPipeline({
 			label: "overdrawPipeline",
-			layout: particleResources.particlePipelineLayout!,
+			layout: this.resources().particleResources.getParticlePipelineLayout(),
 			vertex: {
 				module: this.device.createShaderModule({ code: particleVertShader }),
 				entryPoint: "main",
@@ -62,6 +59,8 @@ export class DrawOverdrawResources {
 		});
 		return this.overdrawPipeline;
 	}
+
+	////////////////////////////////////////////////////////////
 
 	destroy() {
 		console.log("🔴 Destroying draw overdraw resources");

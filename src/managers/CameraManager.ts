@@ -5,11 +5,11 @@ import { mat4, vec3, Vec3 } from "../utils/MatrixMath";
 export class CameraManager {
 	private readonly galaxy: () => Galaxy;
 
-	public readonly matProjection = mat4.create();
-	public readonly matView = mat4.create();
-	public readonly camPos = vec3.create();
-	public readonly camLookAt = vec3.create();
-	public readonly camOrient = vec3.create();
+	readonly matProjection = mat4.create();
+	readonly matView = mat4.create();
+	readonly camPos = vec3.create();
+	readonly camLookAt = vec3.create();
+	readonly camOrient = vec3.create();
 
 	constructor(simulator: GalaxySimulator) {
 		this.galaxy = () => {

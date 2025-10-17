@@ -51,8 +51,7 @@ export class ResourceManager {
 			return simulator.galaxy;
 		};
 		this.particleRenderer = () => {
-			if (!!!simulator.particleRenderer)
-				throw new Error("ParticleRenderer must be initialized before ResourceManager");
+			if (!!!simulator.particleRenderer) throw new Error("ParticleRenderer must be initialized before ResourceManager");
 			return simulator.particleRenderer;
 		};
 		this.performanceProfiler = () => {
@@ -89,7 +88,7 @@ export class ResourceManager {
 	// temporal accumulation resources. It is called when the canvas size changes
 	// or when parameters affecting resource dimensions are updated.
 	setup() {
-		console.log("🔴 Creating post processing resources (EXPENSIVE!)...");
+		console.log("🔴 Creating post processing resources");
 		this.particleResources.setup();
 		this.drawOverdrawResources.setup();
 		this.msaaResources.setup();
@@ -98,13 +97,13 @@ export class ResourceManager {
 		this.drawOverdrawResources.setup();
 		this.bloomResources.setup();
 		this.toneMapResources.setup();
-		this.accumulationResources.setup();
+		this.accumulationResources.updateWeightsBuffer();
 	}
 
 	// Public method to clean up all GPU resources. This should be called when
 	// shutting down the application or when needing to completely reset resources.
 	destroy() {
-		console.log("Destroying ResourceManager GPU resources...");
+		console.log("Destroying ResourceManager GPU resources");
 		this.accumulationResources.destroy();
 		this.bloomResources.destroy();
 		this.toneMapResources.destroy();
@@ -129,5 +128,6 @@ export class ResourceManager {
 		this.particleRenderer().allocateEmptyBuffer(this.galaxy().totalStarCount);
 		// Recreate particle bind group to reflect layout (with/without overdraw buffer)
 		this.particleResources.setup();
+		this.accumulationResources.updateWeightsBuffer();
 	}
 }

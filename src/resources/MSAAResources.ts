@@ -8,10 +8,8 @@ export class MSAAResources {
 	galaxy: () => Galaxy;
 	resources: () => ResourceManager;
 
-	msaaTexture: GPUTexture | null = null;
-	msaaTextureView: GPUTextureView | null = null;
-
-	private lastDims = { width: -1, height: -1 };
+	private msaaTexture: GPUTexture | null = null;
+	private msaaTextureView: GPUTextureView | null = null;
 
 	constructor(simulator: GalaxySimulator) {
 		this.device = simulator.device;
@@ -20,43 +18,52 @@ export class MSAAResources {
 		this.resources = () => simulator.resources;
 	}
 
-	setup() {
-		const [width, height] = [this.canvas.width, this.canvas.height];
-		if (
-			width != this.lastDims.width ||
-			height != this.lastDims.height ||
-			!!!this.msaaTexture ||
-			!!!this.msaaTextureView
-		) {
-			this.createMSAATexture(width, height);
-			this.createMSAATextureView(width, height);
-		}
-		this.lastDims = { width, height };
-	}
+	setup() {}
 
-	getMSAATexture = () => this.msaaTexture ?? this.createMSAATexture(this.canvas.width, this.canvas.height);
-	getMSAATextureView = () => this.msaaTextureView ?? this.createMSAATextureView(this.canvas.width, this.canvas.height);
+	////////////////////////////////////////////////////////////
 
-	createMSAATexture(width: number, height: number): GPUTexture {
-		if (this.msaaTexture && this.lastDims.width === width && this.lastDims.height === height) return this.msaaTexture;
-		console.log("🔴 Creating MSAA texture (EXPENSIVE!)");
+	getMSAATexture = (width: number, height: number) =>
+		!!!this.msaaTexture || this.lastMSAATextureDims.width !== width || this.lastMSAATextureDims.height !== height
+			? this.createMSAATexture(width, height)
+			: this.msaaTexture;
+
+	private createMSAATexture(width: number, height: number): GPUTexture {
+		console.log(`🔴 Creating MSAA texture ${width}x${height}`);
 		this.msaaTexture?.destroy();
 		this.msaaTexture = this.device.createTexture({
+			label: `MSAA texture (${width}x${height})`,
 			size: { width, height },
 			sampleCount: 4,
 			format: "rgba16float",
 			usage: GPUTextureUsage.RENDER_ATTACHMENT,
 		});
+		this.lastMSAATextureDims = { width, height };
 		return this.msaaTexture;
 	}
 
-	createMSAATextureView(width: number, height: number): GPUTextureView {
-		if (this.msaaTextureView && this.lastDims.width === width && this.lastDims.height === height)
-			return this.msaaTextureView;
-		if (!!!this.msaaTexture) this.createMSAATexture(width, height);
-		this.msaaTextureView = this.msaaTexture!.createView();
+	private lastMSAATextureDims = { width: -1, height: -1 };
+
+	////////////////////////////////////////////////////////////
+
+	getMSAATextureView = (width: number, height: number) =>
+		!!!this.msaaTextureView ||
+		this.lastMSAATextureViewDims.width !== width ||
+		this.lastMSAATextureViewDims.height !== height
+			? this.createMSAATextureView(width, height)
+			: this.msaaTextureView;
+
+	private createMSAATextureView(width: number, height: number): GPUTextureView {
+		console.log(`🔴 Creating MSAA texture view ${width}x${height}`);
+		this.msaaTextureView = this.getMSAATexture(width, height).createView({
+			label: `MSAA texture view (${width}x${height})`,
+		});
+		this.lastMSAATextureViewDims = { width, height };
 		return this.msaaTextureView;
 	}
+
+	private lastMSAATextureViewDims = { width: -1, height: -1 };
+
+	////////////////////////////////////////////////////////////
 
 	destroy() {
 		console.log("🔴 Destroying MSAA resources");

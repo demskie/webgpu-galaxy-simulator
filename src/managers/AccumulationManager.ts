@@ -14,19 +14,12 @@ export class AccumulationManager {
 	// Last used temporal accumulation count (number of frames averaged).
 	private lastTemporalAccumulation = 1;
 
-	// Track how many frames have been rendered since last buffer clear
-	private framesSinceBufferClear = 16;
-
 	// One-frame override control to force full rendering with accumulation=1
 	private oneFrameOverrideRequested = false;
 	private oneFrameOverrideActive = false;
 
 	getLastTemporalAccumulation(): number {
 		return this.lastTemporalAccumulation;
-	}
-
-	getFramesSinceBufferClear(): number {
-		return this.framesSinceBufferClear;
 	}
 
 	constructor(simulator: GalaxySimulator) {
@@ -57,11 +50,6 @@ export class AccumulationManager {
 
 		// Advance the temporal frame counter
 		this.advanceTemporalFrame();
-
-		// Track frames since last buffer clear for weighting
-		this.incrementFramesSinceClear();
-
-		return { shouldRegen: true };
 	}
 
 	// Request that the next rendered frame uses temporalAccumulation=1 (full render)
@@ -115,13 +103,6 @@ export class AccumulationManager {
 		this.galaxy().temporalFrame = (this.galaxy().temporalFrame + 1) % this.lastTemporalAccumulation;
 	}
 
-	// Increments the frames-since-clear counter (capped at 16).
-	private incrementFramesSinceClear() {
-		if (this.framesSinceBufferClear < 16) {
-			this.framesSinceBufferClear++;
-		}
-	}
-
 	// Helper to update resources and state if the accumulation value changes.
 	// Calls ResourceManager and updates local state/galaxy.
 	private updateResourcesIfChanged(newAcc: number) {
@@ -134,12 +115,8 @@ export class AccumulationManager {
 		// Update our internal state BEFORE calling ResourceManager
 		this.lastTemporalAccumulation = newAcc;
 
-		// Now create resources
-		this.resources().accumulationResources.setup();
-	}
-
-	// Called when accumulation buffers are cleared (e.g., from ResourceManager)
-	resetFramesSinceBufferClear() {
-		this.framesSinceBufferClear = 0;
+		// Clear buffers and update weights for the new accumulation value
+		this.resources().accumulationResources.requestForceClear();
+		this.resources().accumulationResources.updateWeightsBuffer();
 	}
 }

@@ -30,6 +30,9 @@ export class GalaxySimulator {
 	readonly ui: UIManager;
 	readonly particles: Particles;
 
+	// Track particle count changes for efficient updates
+	private lastParticleCount = 0;
+
 	constructor(
 		canvas: HTMLCanvasElement,
 		device: GPUDevice,
@@ -43,6 +46,9 @@ export class GalaxySimulator {
 
 		// Initialize galaxy with callbacks to handle UI value changes
 		this.galaxy = getDefaultGalaxyPreset(this.getGalaxyCallbacks());
+
+		// Initialize particle count tracking
+		this.lastParticleCount = this.galaxy.totalStarCount;
 
 		// Initialize managers and renderers
 		this.camera = new CameraManager(this);
@@ -66,6 +72,7 @@ export class GalaxySimulator {
 		this.fps = new FPSManager(this);
 		this.memoryProfiler = new MemoryProfiler(this);
 		this.particles = new Particles(this);
+		this.particles.setup();
 		this.renderer = new RenderingManager(this);
 		this.ui = new UIManager(this);
 
@@ -112,10 +119,13 @@ export class GalaxySimulator {
 		const preset = getGalaxyPreset(name);
 		this.galaxy.updateFromPreset(preset);
 
+		// Update particle count tracking for the new preset
+		this.lastParticleCount = this.galaxy.totalStarCount;
+
 		// Immediately clear accumulation buffers to prevent showing remnants of previous preset
 		this.galaxy.temporalFrame = 0;
 		this.resources.accumulationResources.requestForceClear();
-		this.resources.accumulationResources.setup(); // Force clear on preset change occurs internally
+		this.resources.accumulationResources.updateWeightsBuffer(); // Force clear occurs within update
 
 		// Update particles to match the new preset
 		this.updateParticles();
@@ -133,7 +143,7 @@ export class GalaxySimulator {
 			console.warn("Particles not initialized yet, skipping compute uniform update");
 			return;
 		}
-		this.particles.updateComputeUniforms();
+		this.particles.updateComputeGalaxyUniformBuffer();
 	}
 
 	private getGalaxyCallbacks(): GalaxyCallbacks {
@@ -161,7 +171,6 @@ export class GalaxySimulator {
 	}
 
 	private handleParticleSizeChange() {
-		this.resetAccumulationBuffers();
 		this.updateUniformData();
 		this.particles.update();
 	}
@@ -175,17 +184,14 @@ export class GalaxySimulator {
 	}
 
 	private requestToneParameterUpdate() {
-		this.resetAccumulationBuffers();
 		this.updateToneParameters();
 	}
 
 	private requestBloomParameterUpdate() {
-		this.resetAccumulationBuffers();
 		this.updateBloomParameters();
 	}
 
 	private requestUniformDataUpdate() {
-		this.resetAccumulationBuffers();
 		this.updateUniformData();
 	}
 
@@ -193,7 +199,7 @@ export class GalaxySimulator {
 		this.accumulator.requestFullRenderNextFrame();
 		this.resources.accumulationResources.requestForceClear();
 		if (immediate) {
-			this.resources.accumulationResources.setup();
+			this.resources.accumulationResources.updateWeightsBuffer();
 		}
 	}
 
@@ -204,7 +210,7 @@ export class GalaxySimulator {
 	}
 
 	private render() {
-		const particleUpdateNeeded = this.galaxy.totalStarCount !== this.particles.getLastParticleCount();
+		const particleUpdateNeeded = this.galaxy.totalStarCount !== this.lastParticleCount;
 		if (particleUpdateNeeded) {
 			this.updateUniformData();
 		}
@@ -219,6 +225,8 @@ export class GalaxySimulator {
 	updateParticles() {
 		this.updateUniformData();
 		this.particles.update();
+		// Update particle count tracking after particles are updated
+		this.lastParticleCount = this.galaxy.totalStarCount;
 	}
 
 	immediateRender() {

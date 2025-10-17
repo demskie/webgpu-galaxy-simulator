@@ -4,8 +4,7 @@ import { ResourceManager } from "../managers/ResourceManager";
 import particleVertShader from "../shaders/core/particle.vert.wgsl";
 import particleFragShader from "../shaders/core/particle.frag.wgsl";
 import particleNoOverdrawFragShader from "../shaders/core/particle.nooverdraw.frag.wgsl";
-import { CountOverdrawResources } from "./CountOverdrawResources";
-import { UNIFORM_LAYOUT } from "../constants/uniformLayout";
+import { UNIFORM_LAYOUT } from "../constants/UniformLayout";
 
 // Uses shared UNIFORM_LAYOUT
 
@@ -15,40 +14,27 @@ export class ParticleResources {
 	resources: () => ResourceManager;
 
 	// Uniform buffer containing view/projection matrices and galaxy parameters.
-	uniformBuffer: GPUBuffer | null = null;
+	private uniformBuffer: GPUBuffer | null = null;
 
 	// Vertex buffer with quad geometry for particle billboards.
-	quadVertexBuffer: GPUBuffer | null = null;
-
-	// Temporary ArrayBuffer for staging uniform data before GPU upload.
-	readonly uniformDataArray = new ArrayBuffer(UNIFORM_LAYOUT.totalSize);
-
-	// Cached DataView to avoid allocations in updateUniforms()
-	readonly cachedUniformDataView = new DataView(this.uniformDataArray);
-
-	// Cached Float32Array view to avoid allocations in updateUniforms()
-	readonly cachedUniformF32Array = new Float32Array(this.uniformDataArray);
+	private quadVertexBuffer: GPUBuffer | null = null;
 
 	// Storage buffer holding particle positions and attributes.
-	particleStorageBuffer: GPUBuffer | null = null;
+	private particleStorageBuffer: GPUBuffer | null = null;
 
 	// Bind groups and layouts
-	particleBindGroupLayout: GPUBindGroupLayout | null = null;
-	particleBindGroupLayoutNoOverdraw: GPUBindGroupLayout | null = null;
-	particleBindGroup: GPUBindGroup | null = null;
-	particleBindGroupNoOverdraw: GPUBindGroup | null = null;
+	private particleBindGroupLayout: GPUBindGroupLayout | null = null;
+	private particleBindGroupLayoutNoOverdraw: GPUBindGroupLayout | null = null;
+	private particleBindGroup: GPUBindGroup | null = null;
+	private particleBindGroupNoOverdraw: GPUBindGroup | null = null;
 
 	// Pipeline layouts
-	particlePipelineLayout: GPUPipelineLayout | null = null;
-	particlePipelineLayoutNoOverdraw: GPUPipelineLayout | null = null;
+	private particlePipelineLayout: GPUPipelineLayout | null = null;
+	private particlePipelineLayoutNoOverdraw: GPUPipelineLayout | null = null;
 
 	// Render pipelines
-	particlePipeline: GPURenderPipeline | null = null;
-	particlePipelineNoOverdraw: GPURenderPipeline | null = null;
-
-	private lastDims = { width: -1, height: -1 };
-	private lastOverdrawDisabled: boolean | null = null;
-	private lastParticleStorageBuffer: GPUBuffer | null = null;
+	private particlePipeline: GPURenderPipeline | null = null;
+	private particlePipelineNoOverdraw: GPURenderPipeline | null = null;
 
 	constructor(simulator: GalaxySimulator) {
 		this.device = simulator.device;
@@ -56,62 +42,29 @@ export class ParticleResources {
 		this.resources = () => simulator.resources;
 	}
 
-	setup() {
-		if (!!!this.uniformBuffer) this.createUniformBuffer();
-		if (!!!this.quadVertexBuffer) this.createQuadVertexBuffer();
-		if (!!!this.particleStorageBuffer) this.createParticleStorageBuffer();
-		if (!!!this.particleBindGroupLayout) this.createParticleBindGroupLayout();
-		if (!!!this.particleBindGroupLayoutNoOverdraw) this.createParticleBindGroupLayoutNoOverdraw();
-		if (!!!this.particlePipelineLayout) this.createParticlePipelineLayout();
-		if (!!!this.particlePipelineLayoutNoOverdraw) this.createParticlePipelineLayoutNoOverdraw();
-		if (!!!this.particlePipeline) this.createParticlePipeline();
-		if (!!!this.particlePipelineNoOverdraw) this.createParticlePipelineNoOverdraw();
+	setup() {}
 
-		const [width, height] = [this.canvas.width, this.canvas.height];
-		const dimsChanged = width != this.lastDims.width || height != this.lastDims.height;
-		const overdrawDisabled = this.resources().galaxy().maxOverdraw >= 4096;
-		const overdrawModeChanged = this.lastOverdrawDisabled === null || overdrawDisabled !== this.lastOverdrawDisabled;
-		const storageChanged = this.particleStorageBuffer !== this.lastParticleStorageBuffer;
-
-		this.resources().countOverdrawResources.setup();
-
-		if (overdrawDisabled) {
-			this.particleBindGroup = null;
-			if (overdrawModeChanged || storageChanged || !!!this.particleBindGroupNoOverdraw)
-				this.createParticleBindGroupNoOverdraw();
-		} else {
-			this.particleBindGroupNoOverdraw = null;
-			if (overdrawModeChanged || dimsChanged || storageChanged || !!!this.particleBindGroup)
-				this.createParticleBindGroup(this.resources().countOverdrawResources, width, height);
-		}
-
-		this.lastDims = { width, height };
-		this.lastOverdrawDisabled = overdrawDisabled;
-		this.lastParticleStorageBuffer = this.particleStorageBuffer;
-	}
+	////////////////////////////////////////////////////////////
 
 	getUniformBuffer = () => this.uniformBuffer ?? this.createUniformBuffer();
-	getQuadVertexBuffer = () => this.quadVertexBuffer ?? this.createQuadVertexBuffer();
-	getParticleStorageBuffer = () => this.particleStorageBuffer ?? this.createParticleStorageBuffer();
-	getParticleBindGroupLayout = () => this.particleBindGroupLayout ?? this.createParticleBindGroupLayout();
-	getParticleBindGroupLayoutNoOverdraw = () => this.particleBindGroupLayoutNoOverdraw ?? this.createParticleBindGroupLayoutNoOverdraw(); // prettier-ignore
-	getParticleBindGroup = () => this.particleBindGroup ?? this.createParticleBindGroup(this.resources().countOverdrawResources, this.canvas.width, this.canvas.height); // prettier-ignore
-	getParticleBindGroupNoOverdraw = () => this.particleBindGroupNoOverdraw ?? this.createParticleBindGroupNoOverdraw(); // prettier-ignore
-	getParticlePipelineLayout = () => this.particlePipelineLayout ?? this.createParticlePipelineLayout();
-	getParticlePipelineLayoutNoOverdraw = () => this.particlePipelineLayoutNoOverdraw ?? this.createParticlePipelineLayoutNoOverdraw(); // prettier-ignore
-	getParticlePipeline = () => this.particlePipeline ?? this.createParticlePipeline();
-	getParticlePipelineNoOverdraw = () => this.particlePipelineNoOverdraw ?? this.createParticlePipelineNoOverdraw();
 
-	createUniformBuffer(): GPUBuffer {
+	private createUniformBuffer(): GPUBuffer {
+		console.log("🔴 Creating uniform buffer");
 		this.uniformBuffer?.destroy();
 		this.uniformBuffer = this.device.createBuffer({
+			label: "uniformBuffer",
 			size: UNIFORM_LAYOUT.totalSize,
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 		});
 		return this.uniformBuffer;
 	}
 
-	createQuadVertexBuffer(): GPUBuffer {
+	////////////////////////////////////////////////////////////
+
+	getQuadVertexBuffer = () => this.quadVertexBuffer ?? this.createQuadVertexBuffer();
+
+	private createQuadVertexBuffer(): GPUBuffer {
+		console.log("🔴 Creating quad vertex buffer");
 		this.quadVertexBuffer?.destroy();
 		// Precompute offsets for quad vertices (2 triangles -> 6 vertices)
 		// (0,0), (1,0), (0,1), (1,0), (1,1), (0,1) -> corresponds to vertex_index 0..5
@@ -132,19 +85,45 @@ export class ParticleResources {
 		return quadVertexBuffer;
 	}
 
-	createParticleStorageBuffer(): GPUBuffer {
-		this.particleStorageBuffer?.destroy();
-		// Allocate a minimal non-zero buffer to satisfy bind group validation.
-		// Will be resized later by ParticleRenderer.allocateEmptyBuffer().
-		const minimalStride = 48; // bytes per particle
+	////////////////////////////////////////////////////////////
+
+	getParticleStorageBuffer = (size?: number) =>
+		!!!this.particleStorageBuffer || (size !== undefined && this.lastParticleStorageBufferSize !== size)
+			? this.createParticleStorageBuffer(size)
+			: this.particleStorageBuffer;
+
+	private createParticleStorageBuffer(size?: number): GPUBuffer {
+		console.log(`🔴 Creating particle storage buffer - Size: ${size ?? this.lastParticleStorageBufferSize} bytes`);
+		const previousBuffer = this.particleStorageBuffer;
+		this.particleBindGroup = null;
+		this.particleBindGroupNoOverdraw = null;
+		const minimalStride = 48; // bytes per particle - minimal non-zero buffer to satisfy bind group validation.
+		const actualSize = Math.max(size ?? this.lastParticleStorageBufferSize, minimalStride);
 		this.particleStorageBuffer = this.device.createBuffer({
-			size: minimalStride,
+			label: "particleStorageBuffer",
+			size: actualSize,
 			usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
 		});
+		this.lastParticleStorageBufferSize = actualSize;
+		if (previousBuffer) {
+			this.device.queue
+				.onSubmittedWorkDone()
+				.then(() => previousBuffer.destroy())
+				.catch((error) => {
+					console.warn("Failed to destroy previous particle storage buffer", error);
+				});
+		}
 		return this.particleStorageBuffer;
 	}
 
-	createParticleBindGroupLayout(): GPUBindGroupLayout {
+	private lastParticleStorageBufferSize = 0;
+
+	////////////////////////////////////////////////////////////
+
+	getParticleBindGroupLayout = () => this.particleBindGroupLayout ?? this.createParticleBindGroupLayout();
+
+	private createParticleBindGroupLayout(): GPUBindGroupLayout {
+		console.log("🔴 Creating particle bind group layout");
 		this.particleBindGroupLayout = this.device.createBindGroupLayout({
 			label: "particleBindGroupLayout",
 			entries: [
@@ -156,7 +135,13 @@ export class ParticleResources {
 		return this.particleBindGroupLayout;
 	}
 
-	createParticleBindGroupLayoutNoOverdraw(): GPUBindGroupLayout {
+	////////////////////////////////////////////////////////////
+
+	getParticleBindGroupLayoutNoOverdraw = () =>
+		this.particleBindGroupLayoutNoOverdraw ?? this.createParticleBindGroupLayoutNoOverdraw();
+
+	private createParticleBindGroupLayoutNoOverdraw(): GPUBindGroupLayout {
+		console.log("🔴 Creating particle bind group layout no overdraw");
 		this.particleBindGroupLayoutNoOverdraw = this.device.createBindGroupLayout({
 			label: "particleBindGroupLayoutNoOverdraw",
 			entries: [
@@ -167,61 +152,88 @@ export class ParticleResources {
 		return this.particleBindGroupLayoutNoOverdraw;
 	}
 
-	createParticleBindGroup(countOverdrawResources: CountOverdrawResources, width: number, height: number): GPUBindGroup {
-		if (!!!this.particleBindGroupLayout) this.createParticleBindGroupLayout();
-		if (!!!this.uniformBuffer) this.createUniformBuffer();
-		if (!!!this.particleStorageBuffer) this.createParticleStorageBuffer();
-		if (!!!countOverdrawResources.overdrawCountBuffer) countOverdrawResources.createOverdrawCountBuffer(width, height);
+	////////////////////////////////////////////////////////////
+
+	getParticleBindGroup = (width: number, height: number) =>
+		!!!this.particleBindGroup ||
+		this.lastParticleBindGroupDims.width !== width ||
+		this.lastParticleBindGroupDims.height !== height
+			? this.createParticleBindGroup(width, height)
+			: this.particleBindGroup;
+
+	private createParticleBindGroup(width: number, height: number): GPUBindGroup {
+		console.log("🔴 Creating particle bind group");
 		this.particleBindGroup = this.device.createBindGroup({
 			label: "particleBindGroup",
-			layout: this.particleBindGroupLayout!,
+			layout: this.getParticleBindGroupLayout(),
 			entries: [
-				{ binding: 0, resource: { buffer: this.uniformBuffer! } },
-				{ binding: 1, resource: { buffer: this.particleStorageBuffer! } },
-				{ binding: 2, resource: { buffer: countOverdrawResources.overdrawCountBuffer! } },
+				{ binding: 0, resource: { buffer: this.getUniformBuffer() } },
+				{ binding: 1, resource: { buffer: this.getParticleStorageBuffer() } },
+				{
+					binding: 2,
+					resource: { buffer: this.resources().countOverdrawResources.getOverdrawCountBuffer(width, height) },
+				},
 			],
 		});
+		this.lastParticleBindGroupDims = { width, height };
 		return this.particleBindGroup;
 	}
 
-	createParticleBindGroupNoOverdraw(): GPUBindGroup {
-		if (!!!this.particleBindGroupLayoutNoOverdraw) this.createParticleBindGroupLayoutNoOverdraw();
-		if (!!!this.uniformBuffer) this.createUniformBuffer();
-		if (!!!this.particleStorageBuffer) this.createParticleStorageBuffer();
+	private lastParticleBindGroupDims = { width: -1, height: -1 };
+
+	////////////////////////////////////////////////////////////
+
+	getParticleBindGroupNoOverdraw = () => this.particleBindGroupNoOverdraw ?? this.createParticleBindGroupNoOverdraw();
+
+	private createParticleBindGroupNoOverdraw(): GPUBindGroup {
+		console.log("🔴 Creating particle bind group no overdraw");
 		this.particleBindGroupNoOverdraw = this.device.createBindGroup({
 			label: "particleBindGroupNoOverdraw",
-			layout: this.particleBindGroupLayoutNoOverdraw!,
+			layout: this.getParticleBindGroupLayoutNoOverdraw(),
 			entries: [
-				{ binding: 0, resource: { buffer: this.uniformBuffer! } },
-				{ binding: 1, resource: { buffer: this.particleStorageBuffer! } },
+				{ binding: 0, resource: { buffer: this.getUniformBuffer() } },
+				{ binding: 1, resource: { buffer: this.getParticleStorageBuffer() } },
 			],
 		});
 		return this.particleBindGroupNoOverdraw;
 	}
 
-	createParticlePipelineLayout(): GPUPipelineLayout {
-		if (!!!this.particleBindGroupLayout) this.createParticleBindGroupLayout();
+	////////////////////////////////////////////////////////////
+
+	getParticlePipelineLayout = () => this.particlePipelineLayout ?? this.createParticlePipelineLayout();
+
+	private createParticlePipelineLayout(): GPUPipelineLayout {
+		console.log("🔴 Creating particle pipeline layout");
 		this.particlePipelineLayout = this.device.createPipelineLayout({
 			label: "particlePipelineLayout",
-			bindGroupLayouts: [this.particleBindGroupLayout!],
+			bindGroupLayouts: [this.getParticleBindGroupLayout()],
 		});
 		return this.particlePipelineLayout;
 	}
 
-	createParticlePipelineLayoutNoOverdraw(): GPUPipelineLayout {
-		if (!!!this.particleBindGroupLayoutNoOverdraw) this.createParticleBindGroupLayoutNoOverdraw();
+	////////////////////////////////////////////////////////////
+
+	getParticlePipelineLayoutNoOverdraw = () =>
+		this.particlePipelineLayoutNoOverdraw ?? this.createParticlePipelineLayoutNoOverdraw();
+
+	private createParticlePipelineLayoutNoOverdraw(): GPUPipelineLayout {
+		console.log("🔴 Creating particle pipeline layout no overdraw");
 		this.particlePipelineLayoutNoOverdraw = this.device.createPipelineLayout({
 			label: "particlePipelineLayoutNoOverdraw",
-			bindGroupLayouts: [this.particleBindGroupLayoutNoOverdraw!],
+			bindGroupLayouts: [this.getParticleBindGroupLayoutNoOverdraw()],
 		});
 		return this.particlePipelineLayoutNoOverdraw;
 	}
 
-	createParticlePipeline(): GPURenderPipeline {
-		if (!!!this.particlePipelineLayout) this.createParticlePipelineLayout();
+	////////////////////////////////////////////////////////////
+
+	getParticlePipeline = () => this.particlePipeline ?? this.createParticlePipeline();
+
+	private createParticlePipeline(): GPURenderPipeline {
+		console.log("🔴 Creating particle pipeline");
 		this.particlePipeline = this.device.createRenderPipeline({
 			label: "particlePipeline",
-			layout: this.particlePipelineLayout!,
+			layout: this.getParticlePipelineLayout(),
 			vertex: {
 				module: this.device.createShaderModule({ code: particleVertShader }),
 				entryPoint: "main",
@@ -251,11 +263,15 @@ export class ParticleResources {
 		return this.particlePipeline;
 	}
 
-	createParticlePipelineNoOverdraw(): GPURenderPipeline {
-		if (!!!this.particlePipelineLayoutNoOverdraw) this.createParticlePipelineLayoutNoOverdraw();
+	////////////////////////////////////////////////////////////
+
+	getParticlePipelineNoOverdraw = () => this.particlePipelineNoOverdraw ?? this.createParticlePipelineNoOverdraw();
+
+	private createParticlePipelineNoOverdraw(): GPURenderPipeline {
+		console.log("🔴 Creating particle pipeline no overdraw");
 		this.particlePipelineNoOverdraw = this.device.createRenderPipeline({
 			label: "particlePipelineNoOverdraw",
-			layout: this.particlePipelineLayoutNoOverdraw!,
+			layout: this.getParticlePipelineLayoutNoOverdraw(),
 			vertex: {
 				module: this.device.createShaderModule({ code: particleVertShader }),
 				entryPoint: "main",
@@ -284,6 +300,8 @@ export class ParticleResources {
 		});
 		return this.particlePipelineNoOverdraw;
 	}
+
+	////////////////////////////////////////////////////////////
 
 	destroy() {
 		console.log("🔴 Destroying particle resources");

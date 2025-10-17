@@ -3,7 +3,7 @@ import { Galaxy } from "../entities/Galaxy";
 import { GalaxySimulator } from "../GalaxySimulator";
 import { ResourceManager } from "../managers/ResourceManager";
 import { ParticleRenderer } from "../renderers/ParticleRenderer";
-import { UNIFORM_LAYOUT } from "../constants/uniformLayout";
+import { UNIFORM_LAYOUT } from "../constants/UniformLayout";
 import { GALAXY_UNIFORM_BYTES } from "../utils/GalaxyUniformPacker";
 
 export interface VRAMUsage {
@@ -48,37 +48,32 @@ export class MemoryProfiler {
 		const bytesPerPixel = 8; // rgba16float = 4 channels * 2 bytes each
 
 		// MSAA texture (4x samples)
-		if (this.resources().msaaResources.msaaTexture) {
+		if (this.resources().msaaResources.getMSAATexture(width, height)) {
 			textureMemory += width * height * bytesPerPixel * 4;
 		}
 
 		// HDR texture
-		if (this.resources().hdrResources.hdrTexture) {
+		if (this.resources().hdrResources.getHDRTexture(width, height)) {
 			textureMemory += width * height * bytesPerPixel;
 		}
 
 		// Accumulation texture array (16 layers)
-		if (this.resources().accumulationResources.accumTextureArray) {
+		if (this.resources().accumulationResources.getAccumTextureArray(width, height)) {
 			textureMemory += width * height * bytesPerPixel * 16;
 		}
 
 		// Bloom textures (half resolution)
 		const bloomWidth = Math.floor(width / 2);
 		const bloomHeight = Math.floor(height / 2);
-		if (this.resources().bloomResources.bloomTexture1) {
-			textureMemory += bloomWidth * bloomHeight * bytesPerPixel;
-		}
-		if (this.resources().bloomResources.bloomTexture2) {
-			textureMemory += bloomWidth * bloomHeight * bytesPerPixel;
-		}
+		textureMemory += 2 * bloomWidth * bloomHeight * bytesPerPixel;
 
 		// Particle storage buffer (48 bytes per particle)
-		if (this.resources().particleResources.particleStorageBuffer) {
+		if (this.resources().particleResources.getParticleStorageBuffer()) {
 			bufferMemory += galaxy.totalStarCount * 48;
 		}
 
 		// Uniform buffer
-		if (this.resources().particleResources.uniformBuffer) {
+		if (this.resources().particleResources.getUniformBuffer()) {
 			bufferMemory += UNIFORM_LAYOUT.totalSize;
 		}
 
@@ -92,16 +87,16 @@ export class MemoryProfiler {
 		bufferMemory += width * height * 4;
 
 		// Quad vertex buffer
-		if (this.resources().particleResources.quadVertexBuffer) {
+		if (this.resources().particleResources.getQuadVertexBuffer()) {
 			bufferMemory += 48; // 12 vertices * 4 bytes
 		}
 
 		// Various small uniform buffers
-		if (this.resources().toneMapResources.toneParamBuffer) bufferMemory += 36;
-		if (this.resources().bloomResources.bloomParamsBuffer) bufferMemory += 16;
-		if (this.resources().bloomResources.bloomBlurHParamsBuffer) bufferMemory += 16;
-		if (this.resources().bloomResources.bloomBlurVParamsBuffer) bufferMemory += 16;
-		if (this.resources().accumulationResources.accumWeightsBuffer) bufferMemory += 64;
+		if (this.resources().toneMapResources.getToneParamBuffer()) bufferMemory += 36;
+		if (this.resources().bloomResources.getBloomParamsBuffer()) bufferMemory += 16;
+		if (this.resources().bloomResources.getBloomBlurHParamsBuffer()) bufferMemory += 16;
+		if (this.resources().bloomResources.getBloomBlurVParamsBuffer()) bufferMemory += 16;
+		if (this.resources().accumulationResources.getAccumWeightsBuffer()) bufferMemory += 64;
 
 		// GPU timing buffers
 		if (this.resources().performanceProfiler().queryBuffer) bufferMemory += 24; // 3 queries * 8 bytes

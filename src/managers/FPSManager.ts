@@ -16,7 +16,7 @@ export class FPSManager {
 	constructor(simulator: GalaxySimulator) {}
 
 	// Updates the FPS calculation based on the current time, accumulating frames over intervals.
-	public updateFps(currentTime: number) {
+	updateFps(currentTime: number) {
 		this.frameCount++;
 
 		if (currentTime - this.lastFrameTime >= FPS_UPDATE_INTERVAL) {
@@ -27,13 +27,13 @@ export class FPSManager {
 	}
 
 	// Returns the current calculated FPS value.
-	public getFps(): number {
+	getFps(): number {
 		return this.fps;
 	}
 
 	// Determines if a new frame should be rendered based on the target frame rate,
 	// handling unlocked mode and delta time capping to prevent animation issues.
-	public shouldRenderFrame(currentTime: number, maxFrameRate: number): { shouldRender: boolean; deltaTime: number } {
+	shouldRenderFrame(currentTime: number, maxFrameRate: number): { shouldRender: boolean; deltaTime: number } {
 		let deltaTime = currentTime - this.lastRenderTime;
 
 		// Handle first frame by initializing lastRenderTime

@@ -32,8 +32,6 @@ export class Particles {
 	private readonly particleRenderer: () => ParticleRenderer;
 	private readonly resources: () => ResourceManager;
 
-	private lastParticleCount = 0;
-
 	// Compute pipeline for particle simulation.
 	private computePipeline: GPUComputePipeline | null = null;
 
@@ -60,125 +58,123 @@ export class Particles {
 			if (!!!simulator.resources) throw new Error("Resources must be initialized before Particles");
 			return simulator.resources;
 		};
-		this.initialize();
 	}
 
-	getLastParticleCount(): number {
-		return this.lastParticleCount;
+	setup() {}
+
+	////////////////////////////////////////////////////////////
+
+	getComputeGalaxyUniformBuffer = () => this.computeGalaxyUniformBuffer ?? this.createComputeGalaxyUniformBuffer();
+
+	private createComputeGalaxyUniformBuffer(): GPUBuffer {
+		console.log("🔴 Creating compute galaxy uniform buffer");
+		this.computeGalaxyUniformBuffer?.destroy();
+		this.computeGalaxyUniformBuffer = this.device.createBuffer({
+			label: "computeGalaxyUniformBuffer",
+			size: GALAXY_UNIFORM_BYTES,
+			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+		});
+		return this.computeGalaxyUniformBuffer;
 	}
 
-	initialize() {
-		// Ensure compute uniform buffer exists before pipeline creation
-		this.ensureComputeGalaxyUniformBuffer();
+	updateComputeGalaxyUniformBuffer() {
+		const galaxyArray = this.galaxy().toGpuArray();
+		if (!galaxyArray || !galaxyArray.buffer) {
+			throw new Error("toGpuArray returned null or invalid array");
+		}
+		this.device.queue.writeBuffer(this.getComputeGalaxyUniformBuffer(), 0, galaxyArray.buffer);
+	}
 
-		const computeBindGroupLayout = this.device.createBindGroupLayout({
+	////////////////////////////////////////////////////////////
+
+	getComputePipeline = () => this.computePipeline ?? this.createComputePipeline();
+
+	private createComputePipeline(): GPUComputePipeline {
+		console.log("🔴 Creating compute pipeline");
+		const pipelineLayout = this.device.createPipelineLayout({
+			label: "computePipelineLayout",
+			bindGroupLayouts: [this.getComputeBindGroupLayout()],
+		});
+		this.computePipeline = this.device.createComputePipeline({
+			label: "particleComputePipeline",
+			layout: pipelineLayout,
+			compute: {
+				module: this.device.createShaderModule({ code: particleCompWGSL }),
+				entryPoint: "main",
+			},
+		});
+		return this.computePipeline;
+	}
+
+	////////////////////////////////////////////////////////////
+
+	getComputeBindGroupLayout = () => this.computeBindGroupLayout ?? this.createComputeBindGroupLayout();
+
+	private createComputeBindGroupLayout(): GPUBindGroupLayout {
+		console.log("🔴 Creating compute bind group layout");
+		this.computeBindGroupLayout = this.device.createBindGroupLayout({
 			label: "computeBindGroupLayout",
 			entries: [
 				{ binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: "uniform" } },
 				{ binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } },
 			],
 		});
-
-		// Create pipeline layout using the bind group layout.
-		const computePipelineLayout = this.device.createPipelineLayout({
-			label: "computePipelineLayout",
-			bindGroupLayouts: [computeBindGroupLayout],
-		});
-
-		// Create the compute pipeline specifying the shader module and entry point.
-		this.computePipeline = this.device.createComputePipeline({
-			label: "particleComputePipeline",
-			layout: computePipelineLayout,
-			compute: {
-				module: this.device.createShaderModule({ code: particleCompWGSL }),
-				entryPoint: "main",
-			},
-		});
-
-		// Store the bind group layout for later use in creating bind groups.
-		this.computeBindGroupLayout = computeBindGroupLayout;
+		return this.computeBindGroupLayout;
 	}
 
-	// Ensure the compute uniform buffer is created
-	private ensureComputeGalaxyUniformBuffer() {
-		if (!!!this.computeGalaxyUniformBuffer) {
-			this.computeGalaxyUniformBuffer = this.device.createBuffer({
-				label: "computeGalaxyUniformBuffer",
-				size: GALAXY_UNIFORM_BYTES,
-				usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-			});
+	////////////////////////////////////////////////////////////
+
+	getComputeBindGroup = () => this.computeBindGroup ?? this.createComputeBindGroup();
+
+	private createComputeBindGroup(): GPUBindGroup {
+		console.log("🔴 Creating compute bind group");
+		if (!!!this.computePipeline || !!!this.computeGalaxyUniformBuffer) {
+			throw new Error("Compute resources not ready for bind group creation");
 		}
+		this.computeBindGroup = this.device.createBindGroup({
+			label: "computeBindGroup",
+			layout: this.computePipeline.getBindGroupLayout(0),
+			entries: [
+				{ binding: 0, resource: { buffer: this.getComputeGalaxyUniformBuffer() } },
+				{ binding: 1, resource: { buffer: this.resources().particleResources.getParticleStorageBuffer() } },
+			],
+		});
+		return this.computeBindGroup;
 	}
 
-	// Update compute shader galaxy uniforms
-	updateComputeUniforms() {
-		this.ensureComputeGalaxyUniformBuffer();
-		const galaxyArray = this.galaxy().toGpuArray();
-		if (!galaxyArray || !galaxyArray.buffer) {
-			throw new Error("toGpuArray returned null or invalid array");
-		}
-		this.device.queue.writeBuffer(this.computeGalaxyUniformBuffer!, 0, galaxyArray.buffer);
-	}
+	////////////////////////////////////////////////////////////
 
 	update(commandEncoder?: GPUCommandEncoder) {
 		// Allocate empty buffer sized for particles
 		const bufferRecreated = this.particleRenderer().allocateEmptyBuffer(this.galaxy().totalStarCount);
 
 		// Ensure uniforms are up to date for this dispatch
-		this.updateComputeUniforms();
+		this.updateComputeGalaxyUniformBuffer();
 
 		// recreate compute bind group if necessary
-		if (!!!this.computeBindGroup || bufferRecreated) {
-			if (!!!this.computePipeline || !!!this.computeGalaxyUniformBuffer) {
-				console.error("Compute resources not ready.");
-			} else {
-				console.log("🔴 Creating compute bind group");
-				this.computeBindGroup = this.device.createBindGroup({
-					label: "computeBindGroup",
-					layout: this.computePipeline!.getBindGroupLayout(0),
-					entries: [
-						{ binding: 0, resource: { buffer: this.computeGalaxyUniformBuffer! } },
-						{ binding: 1, resource: { buffer: this.resources().particleResources.particleStorageBuffer! } },
-					],
-				});
-			}
-		}
+		if (bufferRecreated) this.computeBindGroup = null; // Force recreation
 
 		// Dispatch compute to fill particle buffer
 		// If a command encoder is provided, use it for batching; otherwise create our own
 		const shouldSubmit = !commandEncoder;
 		const encoder = commandEncoder || this.device.createCommandEncoder();
 		const pass = encoder.beginComputePass();
-		pass.setPipeline(this.computePipeline!);
-		pass.setBindGroup(0, this.computeBindGroup!);
+		pass.setPipeline(this.getComputePipeline());
+		pass.setBindGroup(0, this.getComputeBindGroup());
 		const workgroupSize = 256;
 		const numGroups = Math.ceil(this.galaxy().totalStarCount / workgroupSize);
 		pass.dispatchWorkgroups(numGroups);
 		pass.end();
 
 		// Only submit if we created our own encoder
-		if (shouldSubmit) {
-			this.device.queue.submit([encoder.finish()]);
-		}
-
-		// Update particle count tracking
-		this.lastParticleCount = this.galaxy().totalStarCount;
+		if (shouldSubmit) this.device.queue.submit([encoder.finish()]);
 
 		// Ensure bind groups reference the current storage buffer; ParticleResources tracks changes internally
 		this.resources().particleResources.setup();
 	}
 
-	// Get the compute galaxy uniform buffer
-	getComputeGalaxyUniformBuffer(): GPUBuffer | null {
-		return this.computeGalaxyUniformBuffer;
-	}
+	////////////////////////////////////////////////////////////
 
-	// Set the compute galaxy uniform buffer (called from GalaxySimulator)
-	setComputeGalaxyUniformBuffer(buffer: GPUBuffer) {
-		this.computeGalaxyUniformBuffer = buffer;
-	}
-
-	// Clean up compute resources
 	destroy() {
 		console.log("🔴 Destroying Particles compute resources");
 		this.computeGalaxyUniformBuffer?.destroy();
