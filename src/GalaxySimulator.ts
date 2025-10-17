@@ -83,7 +83,8 @@ export class GalaxySimulator {
 	}
 
 	static async start(canvasId: string): Promise<GalaxySimulator> {
-		if (!!!navigator.gpu) throw new Error("WebGPU not supported on this browser.");
+		if (!!!navigator.gpu)
+			throw new Error("WebGPU not supported on this browser. The latest version of Chrome is recommended.");
 
 		const adapter = await navigator.gpu.requestAdapter();
 		if (!!!adapter) throw new Error("No appropriate GPUAdapter found.");
