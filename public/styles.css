@@ -279,6 +279,19 @@ select option {
 	min-height: 300px;
 }
 
+.canvas-info-message {
+	position: absolute;
+	top: -30px;
+	left: 0;
+	right: 0;
+	text-align: center;
+	color: #888;
+	font-size: 12pt;
+	font-family: sans-serif;
+	font-style: italic;
+	z-index: 10;
+}
+
 .controls-section {
 	flex: 1;
 	display: flex;

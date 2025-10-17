@@ -5,7 +5,7 @@ import { CameraManager } from "../managers/CameraManager";
 import { ResourceManager } from "../managers/ResourceManager";
 import { writeGalaxyToDataView } from "../utils/GalaxyUniformPacker";
 
-import { UNIFORM_LAYOUT } from "../constants/UniformLayout";
+import { UNIFORM_LAYOUT } from "../constants/uniformLayout";
 
 export class ParticleRenderer {
 	private readonly device: GPUDevice;

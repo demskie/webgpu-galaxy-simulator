@@ -51,7 +51,7 @@
     "temporalAccumulation": 4,
     "temporalFrame": 0,
     "brightStarBrightness": 1,
-    "maxFrameRate": 30,
+    "maxFrameRate": 60,
     "maxOverdraw": 4096,
     "time": 0
   },
@@ -107,7 +107,7 @@
     "temporalAccumulation": 4,
     "temporalFrame": 1,
     "brightStarBrightness": 1,
-    "maxFrameRate": 30,
+    "maxFrameRate": 60,
     "maxOverdraw": 4096,
     "time": 0
   },
@@ -163,7 +163,7 @@
     "temporalAccumulation": 4,
     "temporalFrame": 0,
     "brightStarBrightness": 1,
-    "maxFrameRate": 30,
+    "maxFrameRate": 60,
     "maxOverdraw": 4096,
     "time": 0
   },
@@ -219,7 +219,7 @@
     "temporalAccumulation": 4,
     "temporalFrame": 3,
     "brightStarBrightness": 1,
-    "maxFrameRate": 30,
+    "maxFrameRate": 60,
     "maxOverdraw": 4096,
     "time": 0
   },
@@ -275,7 +275,7 @@
     "temporalAccumulation": 4,
     "temporalFrame": 2,
     "brightStarBrightness": 1,
-    "maxFrameRate": 30,
+    "maxFrameRate": 60,
     "maxOverdraw": 4096,
     "time": 0
   },

@@ -437,7 +437,7 @@ const DEFAULT_GALAXY_VALUES = {
 	temporalFrame: 1,
 	brightStarBrightness: 1,
 	maxFrameRate: 30,
-	maxOverdraw: 384,
+	maxOverdraw: 4096,
 };
 
 export type GalaxyPresets = Record<string, Partial<Galaxy>>;

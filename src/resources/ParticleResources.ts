@@ -4,9 +4,7 @@ import { ResourceManager } from "../managers/ResourceManager";
 import particleVertShader from "../shaders/core/particle.vert.wgsl";
 import particleFragShader from "../shaders/core/particle.frag.wgsl";
 import particleNoOverdrawFragShader from "../shaders/core/particle.nooverdraw.frag.wgsl";
-import { UNIFORM_LAYOUT } from "../constants/UniformLayout";
-
-// Uses shared UNIFORM_LAYOUT
+import { UNIFORM_LAYOUT } from "../constants/uniformLayout";
 
 export class ParticleResources {
 	device: GPUDevice;

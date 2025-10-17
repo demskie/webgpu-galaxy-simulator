@@ -3,7 +3,7 @@ import { Galaxy } from "../entities/Galaxy";
 import { GalaxySimulator } from "../GalaxySimulator";
 import { ResourceManager } from "../managers/ResourceManager";
 import { ParticleRenderer } from "../renderers/ParticleRenderer";
-import { UNIFORM_LAYOUT } from "../constants/UniformLayout";
+import { UNIFORM_LAYOUT } from "../constants/uniformLayout";
 import { GALAXY_UNIFORM_BYTES } from "../utils/GalaxyUniformPacker";
 
 export interface VRAMUsage {
