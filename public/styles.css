@@ -265,31 +265,31 @@ select option {
 	display: flex;
 	justify-content: center;
 	align-items: center;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.canvas-info-message {
+	text-align: center;
+	color: #888;
+	font-size: 12pt;
+	font-family: sans-serif;
+	font-style: italic;
+	flex-shrink: 0;
 }
 
 .canvas-container {
 	position: relative;
 	box-sizing: border-box;
 	border: 2px solid white;
-	width: min(calc(100vh - 40px), calc(100vw - 420px));
-	height: min(calc(100vh - 40px), calc(100vw - 420px));
-	max-width: calc(100vh - 40px);
-	max-height: calc(100vh - 40px);
+	/* Account for message height (~30px) in viewport calculations */
+	width: min(calc(100vh - 80px), calc(100vw - 420px));
+	height: min(calc(100vh - 80px), calc(100vw - 420px));
+	max-width: calc(100vh - 80px);
+	max-height: calc(100vh - 80px);
 	min-width: 300px;
 	min-height: 300px;
-}
-
-.canvas-info-message {
-	position: absolute;
-	top: -30px;
-	left: 0;
-	right: 0;
-	text-align: center;
-	color: #888;
-	font-size: 12pt;
-	font-family: sans-serif;
-	font-style: italic;
-	z-index: 10;
+	flex-shrink: 0;
 }
 
 .controls-section {
