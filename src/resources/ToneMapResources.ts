@@ -17,8 +17,8 @@ export class ToneMapResources {
 	private toneMapSampler: GPUSampler | null = null;
 	private toneMapBindGroup: GPUBindGroup | null = null;
 
-	private readonly cachedToneParams = new Float32Array(9);
-	private readonly lastToneParams = new Float32Array(9);
+	private readonly cachedToneParams = new Float32Array(10); // 9 original + 1 hdrBrightness
+	private readonly lastToneParams = new Float32Array(10);
 	private toneParamsInitialized = false;
 
 	constructor(simulator: GalaxySimulator) {
@@ -71,7 +71,7 @@ export class ToneMapResources {
 	private createToneParamBuffer(): GPUBuffer {
 		this.toneParamBuffer = this.device.createBuffer({
 			label: "toneParamBuffer",
-			size: 36, // 9 floats
+			size: 40, // 10 floats (9 original + 1 hdrBrightness)
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 		});
 		this.toneParamsInitialized = false;
@@ -140,6 +140,7 @@ export class ToneMapResources {
 		target[6] = this.galaxy().toneMapHighlights;
 		target[7] = this.galaxy().toneMapMidtones;
 		target[8] = this.galaxy().toneMapShoulder;
+		target[9] = this.galaxy().hdrBrightness;
 	}
 
 	private toneParamsChanged(): boolean {

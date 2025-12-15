@@ -442,6 +442,7 @@ export class UIManager {
 			"coreBrightStarSuppressionExtent"
 		);
 		this.initializeParticleSizeVariationSlider("slParticleSizeVariation", "labelParticleSizeVariation");
+		this.initializeHDRControls();
 		this.initializeExposureSlider("slExposure", "labelExposure");
 		this.initializeSaturationSlider("slSaturation", "labelSaturation");
 		this.initializeBloomIntensitySlider("slBloomIntensity", "labelBloomIntensity");
@@ -1037,5 +1038,96 @@ export class UIManager {
 
 		// Apply initial UI state on initialization
 		applyOverdrawDisabledUI();
+	}
+
+	/**
+	 * Initialize HDR display controls with support detection.
+	 * HDR mode allows colors brighter than white (#FFFFFF) on compatible displays.
+	 */
+	initializeHDRControls() {
+		if (!!!this.simulator) return;
+
+		const statusEl = document.getElementById("hdrStatus");
+		const modeSelect = document.getElementById("selHdrMode") as HTMLSelectElement;
+		const brightnessSlider = document.getElementById("slHdrBrightness") as HTMLInputElement;
+		const brightnessLabel = document.getElementById("labelHdrBrightness") as HTMLElement;
+
+		if (!modeSelect || !brightnessSlider || !brightnessLabel) {
+			console.warn("HDR UI elements not found");
+			return;
+		}
+
+		// Update brightness slider state based on HDR mode
+		const updateBrightnessSlider = (isExtendedMode: boolean) => {
+			if (isExtendedMode) {
+				// Enable slider in extended mode - don't change the value, just enable control
+				brightnessSlider.disabled = false;
+				brightnessSlider.style.opacity = "1";
+			} else {
+				// Lock to 1.0 and disable in standard mode
+				brightnessSlider.disabled = true;
+				brightnessSlider.style.opacity = "0.5";
+				brightnessSlider.value = "1.0";
+				brightnessLabel.innerHTML = "1.0";
+				this.simulator!.galaxy.setHdrBrightness(1.0);
+			}
+		};
+
+		// Check HDR support and update status
+		const updateHDRStatus = () => {
+			const isHDRDisplay = GalaxySimulator.isHDRDisplaySupported();
+			const hasExtendedSupport = "getConfiguration" in GPUCanvasContext.prototype;
+			const isExtendedMode = this.simulator!.galaxy.hdrMode === "extended";
+
+			// Update brightness slider state
+			updateBrightnessSlider(isExtendedMode);
+
+			if (!statusEl) return;
+
+			let statusText = "";
+			let statusColor = "";
+
+			if (!isHDRDisplay) {
+				statusText = "⚠️ Display doesn't support HDR";
+				statusColor = "rgba(255, 193, 7, 0.2)"; // Warning yellow
+			} else if (!hasExtendedSupport) {
+				statusText = "⚠️ Browser doesn't support HDR canvas";
+				statusColor = "rgba(255, 193, 7, 0.2)";
+			} else if (isExtendedMode) {
+				statusText = "✅ HDR enabled - colors can exceed white";
+				statusColor = "rgba(76, 175, 80, 0.2)"; // Success green
+			} else {
+				statusText = "ℹ️ HDR available - select Extended mode to enable";
+				statusColor = "rgba(33, 150, 243, 0.2)"; // Info blue
+			}
+
+			statusEl.textContent = statusText;
+			statusEl.style.background = statusColor;
+		};
+
+		// Initialize mode select
+		modeSelect.value = this.simulator.galaxy.hdrMode;
+		modeSelect.onchange = () => {
+			this.simulator!.galaxy.hdrMode = modeSelect.value as GPUCanvasToneMappingMode;
+			this.simulator!.configureHDR();
+			updateHDRStatus();
+		};
+
+		// Initialize brightness slider
+		brightnessSlider.value = this.simulator.galaxy.hdrBrightness.toString();
+		brightnessLabel.innerHTML = this.simulator.galaxy.hdrBrightness.toFixed(1);
+
+		brightnessSlider.oninput = () => {
+			const val = parseFloat(brightnessSlider.value);
+			brightnessLabel.innerHTML = val.toFixed(1);
+			this.simulator!.galaxy.setHdrBrightness(val);
+		};
+
+		// Listen for display changes (e.g., user moves window to different monitor)
+		const hdrMediaQuery = window.matchMedia("(dynamic-range: high)");
+		hdrMediaQuery.addEventListener("change", () => updateHDRStatus());
+
+		// Initial status update
+		updateHDRStatus();
 	}
 }

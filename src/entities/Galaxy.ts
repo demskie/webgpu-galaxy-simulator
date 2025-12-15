@@ -68,6 +68,9 @@ export class Galaxy {
 	brightStarBrightness: number = 0;
 	maxFrameRate: number = 0;
 	maxOverdraw: number = 0;
+	// HDR Display Settings
+	hdrMode: GPUCanvasToneMappingMode = "standard";
+	hdrBrightness: number = 1.0;
 
 	private callbacks: GalaxyCallbacks;
 
@@ -148,6 +151,11 @@ export class Galaxy {
 
 	setMaxOverdraw(val: number) {
 		this.maxOverdraw = Math.max(1, Math.min(4096, val));
+	}
+
+	setHdrBrightness(val: number) {
+		this.hdrBrightness = val;
+		this.callbacks.onToneParametersChanged?.();
 	}
 
 	setParticleSizeVariation(val: number) {

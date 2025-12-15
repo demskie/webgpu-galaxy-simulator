@@ -206,6 +206,25 @@
 								</div>
 							</fieldset>
 
+							<fieldset>
+								<h3>HDR Display</h3>
+								<div id="hdrStatus" style="margin-bottom: 10px; padding: 8px; border-radius: 4px; background: rgba(255,255,255,0.1); font-size: 12px;">
+									Checking HDR support...
+								</div>
+								<div class="slider">
+									<label for="selHdrMode">HDR Mode</label><br />
+									<select id="selHdrMode" style="width: 100%; padding: 4px; margin-top: 4px;">
+										<option value="standard">Standard (SDR)</option>
+										<option value="extended">Extended (HDR)</option>
+									</select>
+								</div>
+								<div class="slider">
+									<label for="slHdrBrightness">HDR Brightness</label><br />
+									<input type="range" min="0.5" max="4.0" step="0.1" class="slider" id="slHdrBrightness" value="1.0" />
+									<span id="labelHdrBrightness">1.0</span>
+								</div>
+							</fieldset>
+
 							<fieldset class="advanced-option">
 								<h3>Rendering</h3>
 								<div class="slider">

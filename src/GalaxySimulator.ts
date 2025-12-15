@@ -37,7 +37,9 @@ export class GalaxySimulator {
 		canvas: HTMLCanvasElement,
 		device: GPUDevice,
 		context: GPUCanvasContext,
-		presentationFormat: GPUTextureFormat
+		presentationFormat: GPUTextureFormat,
+		initialHDRMode: GPUCanvasToneMappingMode = "standard",
+		initialHDRBrightness: number = 1.0
 	) {
 		this.canvas = canvas;
 		this.device = device;
@@ -46,6 +48,10 @@ export class GalaxySimulator {
 
 		// Initialize galaxy with callbacks to handle UI value changes
 		this.galaxy = getDefaultGalaxyPreset(this.getGalaxyCallbacks());
+
+		// Set HDR params before UI is created so it picks up the correct values
+		this.galaxy.hdrMode = initialHDRMode;
+		this.galaxy.hdrBrightness = initialHDRBrightness;
 
 		// Initialize particle count tracking
 		this.lastParticleCount = this.galaxy.totalStarCount;
@@ -106,14 +112,44 @@ export class GalaxySimulator {
 		const context = canvas.getContext("webgpu");
 		if (!!!context) throw new Error("Failed to get GPUCanvasContext.");
 
-		const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+		// Check if HDR display is available - enable extended mode by default if so
+		const isHDRAvailable = GalaxySimulator.isHDRDisplaySupported();
+		const initialHDRMode: GPUCanvasToneMappingMode = isHDRAvailable ? "extended" : "standard";
+
+		// Use rgba16float for HDR support - allows colors brighter than white
+		const presentationFormat: GPUTextureFormat = "rgba16float";
 		context.configure({
 			device: device,
 			format: presentationFormat,
 			alphaMode: "premultiplied",
+			toneMapping: { mode: initialHDRMode },
 		});
 
-		return new GalaxySimulator(canvas, device, context, presentationFormat);
+		// Set HDR defaults based on availability
+		const initialBrightness = isHDRAvailable ? 2.3 : 1.0;
+
+		return new GalaxySimulator(canvas, device, context, presentationFormat, initialHDRMode, initialBrightness);
+	}
+
+	/**
+	 * Reconfigure the canvas context for HDR mode changes.
+	 * This allows toggling between standard (SDR) and extended (HDR) tone mapping.
+	 * In extended mode, colors can be brighter than white (#FFFFFF) on HDR displays.
+	 */
+	configureHDR() {
+		this.context.configure({
+			device: this.device,
+			format: this.presentationFormat,
+			alphaMode: "premultiplied",
+			toneMapping: { mode: this.galaxy.hdrMode },
+		});
+	}
+
+	/**
+	 * Check if the display supports HDR.
+	 */
+	static isHDRDisplaySupported(): boolean {
+		return window.matchMedia("(dynamic-range: high)").matches;
 	}
 
 	selectPreset(name: string) {

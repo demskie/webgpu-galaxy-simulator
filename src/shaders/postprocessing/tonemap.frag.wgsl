@@ -14,6 +14,8 @@ struct ToneParams {
     toneMapHighlights: f32,
     toneMapMidtones: f32,
     toneMapShoulder: f32,
+    // HDR brightness multiplier - values > 1.0 enable super-white on HDR displays
+    hdrBrightness: f32,
 }
 @group(0) @binding(2) var<uniform> params: ToneParams;
 
@@ -122,8 +124,14 @@ fn main(input: FragmentInput) -> @location(0) vec4<f32> {
         }
     }
     
-    // Final safety clamp
-    mappedColor = clamp(mappedColor, vec3<f32>(0.0), vec3<f32>(1.0));
+    // Apply HDR brightness multiplier
+    // When hdrBrightness > 1.0 and canvas is configured with toneMapping: "extended",
+    // colors can exceed 1.0 and display as super-white on HDR displays
+    mappedColor *= params.hdrBrightness;
+    
+    // Final safety clamp - allow values > 1.0 for HDR output
+    // The canvas tone mapping mode will handle the final mapping to display
+    mappedColor = max(mappedColor, vec3<f32>(0.0));
     
     return vec4<f32>(mappedColor, 1.0);
 } 
