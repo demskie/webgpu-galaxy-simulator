@@ -57,10 +57,9 @@ export class MemoryProfiler {
 			textureMemory += width * height * bytesPerPixel;
 		}
 
-		// Accumulation texture array (16 layers)
-		if (this.resources().accumulationResources.getAccumTextureArray(width, height)) {
-			textureMemory += width * height * bytesPerPixel * 16;
-		}
+		// Temporal denoise textures (current frame, denoised, history = 3 textures)
+		// These are created in DenoiseResources
+		textureMemory += width * height * bytesPerPixel * 3;
 
 		// Bloom textures (half resolution)
 		const bloomWidth = Math.floor(width / 2);
@@ -96,7 +95,8 @@ export class MemoryProfiler {
 		if (this.resources().bloomResources.getBloomParamsBuffer()) bufferMemory += 16;
 		if (this.resources().bloomResources.getBloomBlurHParamsBuffer()) bufferMemory += 16;
 		if (this.resources().bloomResources.getBloomBlurVParamsBuffer()) bufferMemory += 16;
-		if (this.resources().accumulationResources.getAccumWeightsBuffer()) bufferMemory += 64;
+		// Temporal denoise params buffer (8 floats = 32 bytes)
+		bufferMemory += 32;
 
 		// GPU timing buffers
 		if (this.resources().performanceProfiler().queryBuffer) bufferMemory += 24; // 3 queries * 8 bytes

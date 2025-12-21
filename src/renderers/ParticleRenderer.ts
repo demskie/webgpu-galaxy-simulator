@@ -53,16 +53,11 @@ export class ParticleRenderer {
 
 		const dataView = this.cachedUniformDataView;
 
-		// Override-aware accumulation for this frame and overdraw sentinel handling
-		let effectiveAccum = this.galaxy().temporalAccumulation;
-		try {
-			effectiveAccum = this.resources().accumulator().getEffectiveTemporalAccumulation();
-		} catch {}
+		// Overdraw sentinel handling
 		const isOverdrawDisabled = this.galaxy().maxOverdraw >= 4096;
 		const maxOverdrawOverride = isOverdrawDisabled ? 1e12 : undefined;
 
 		writeGalaxyToDataView(this.galaxy(), dataView, UNIFORM_LAYOUT.galaxyOffset, {
-			temporalAccumulation: effectiveAccum,
 			maxOverdrawOverride,
 		});
 
@@ -100,9 +95,11 @@ export class ParticleRenderer {
 		this.resources().countOverdrawResources.clear(commandEncoder, this.canvas.width, this.canvas.height);
 	}
 
-	// Renders particles to the provided render pass
+	// Renders particles to the provided render pass using indirect drawing
+	// The instance count is determined by the visibility culling compute shader
 	render(passEncoder: GPURenderPassEncoder, starCount: number) {
 		const particleResources = this.resources().particleResources;
+		const visibilityResources = this.resources().visibilityResources;
 		particleResources.setup();
 		const overdrawDisabled = this.galaxy().maxOverdraw >= 4096;
 		const pipeline = (() => {
@@ -117,13 +114,15 @@ export class ParticleRenderer {
 		const bindGroup = overdrawDisabled
 			? particleResources.getParticleBindGroupNoOverdraw()
 			: particleResources.getParticleBindGroup(this.canvas.width, this.canvas.height);
-		if (!!!bindGroup) {
+		if (!bindGroup) {
 			console.warn("Particle bind group not ready");
 			return;
 		}
 		passEncoder.setBindGroup(0, bindGroup);
 		passEncoder.setVertexBuffer(0, particleResources.getQuadVertexBuffer());
-		passEncoder.draw(6, starCount);
+		
+		// Use indirect drawing - the instance count is set by the visibility culling compute shader
+		passEncoder.drawIndirect(visibilityResources.getIndirectDrawBuffer(), 0);
 	}
 
 	// Destroys all managed GPU buffers to free resources.

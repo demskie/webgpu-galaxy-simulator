@@ -54,7 +54,7 @@ struct Galaxy {
 	temporalFrame: f32,
 	brightStarBrightness: f32,
 	maxOverdraw: f32,
-	_padding1: f32,
+	minSizeVariation: f32,
 	_padding2: f32,
 	_padding3: f32,
 }
@@ -89,6 +89,17 @@ struct ParticleBuffer {
     particles: array<Particle>,
 };
 @group(0) @binding(1) var<storage, read> particleBuffer: ParticleBuffer;
+
+// Visible indices buffer from frustum culling
+// Layout: count (u32), padding (3 x u32), indices (array<u32>)
+struct VisibleBuffer {
+    count: u32,
+    _padding1: u32,
+    _padding2: u32,
+    _padding3: u32,
+    indices: array<u32>,
+};
+@group(0) @binding(3) var<storage, read> visibleBuffer: VisibleBuffer;
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
@@ -183,28 +194,12 @@ fn main(
 	@location(0) local_pos: vec2<f32>,
 	@builtin(instance_index) instanceIdx: u32
 ) -> VertexOutput {
-	// Read particle data first to check type
-	let particle = particleBuffer.particles[instanceIdx];
+	// Look up the actual particle index from the visible indices buffer
+	// The visibility culling compute pass has already filtered particles
+	let particleIdx = visibleBuffer.indices[instanceIdx];
 	
-	// Cull instances not belonging to the current temporal slice.
-	// Bright stars are rendered every slice; dust particles are drawn
-	// only when their instanceIdx maps to the active slice for this frame.
-	// We use bit masking with powers of 2 for accumulation, which ensures
-	// particles never disappear when reducing accumulation - they just merge
-	// into fewer slices. The hash provides better distribution than raw instanceIdx.
-	// Special case: when accumulation = 1, render all dust particles in every frame
-	if (uniforms.galaxy.temporalAccumulation > 1.0 && particle.typ != STAR) {
-		let accum = u32(uniforms.galaxy.temporalAccumulation);
-		let frame = u32(uniforms.galaxy.temporalFrame);
-		// Use hash + bit mask instead of modulo for better stability
-		let mask = accum - 1u;  // Powers of 2: 1→0, 2→1, 4→3, 8→7, 16→15
-		let slice = hash(instanceIdx) & mask;
-		if (slice != frame) {
-			var dummy : VertexOutput;
-			dummy.position = vec4<f32>(-2.0, -2.0, 0.0, 1.0);
-			return dummy;
-		}
-	}
+	// Read particle data using the actual particle index
+	let particle = particleBuffer.particles[particleIdx];
     var output: VertexOutput;
 
     // Calculate particle center position in world space (using data from storage buffer)
@@ -213,34 +208,36 @@ fn main(
     // Determine size based on type (using data from storage buffer)
     var world_size: f32;
     
-    // Calculate size variation factor based on instance index
-    var sizeVariationFactor = 1.0;
-    if (uniforms.galaxy.particleSizeVariation > 0.0) {
-        let randomValue = hashFloat(instanceIdx);
-        // Map random value from [0,1] to [-1,1] for symmetric variation
-        let symmetricRandom = (randomValue - 0.5) * 2.0;
-        // Apply variation symmetrically around 1.0
-        // When particleSizeVariation = 1.0: factor ranges from 0.5x to 1.5x
-        // When particleSizeVariation = 0.5: factor ranges from 0.75x to 1.25x
-        sizeVariationFactor = 1.0 + symmetricRandom * 0.5 * uniforms.galaxy.particleSizeVariation;
-    }
-    
     if (particle.typ == STAR) {
-        world_size = particle.mag * uniforms.galaxy.brightStarSize * sizeVariationFactor;
+        // Bright stars don't use size variation - only dust particles do
+        world_size = particle.mag * uniforms.galaxy.brightStarSize;
         // Bright stars are rendered every slice.
         output.color = particle.color * particle.mag * uniforms.galaxy.brightStarBrightness;
     } else {
+        // Calculate size variation factor for dust particles only
+        var sizeVariationFactor = 1.0;
+        if (uniforms.galaxy.particleSizeVariation > 0.0) {
+            // Use actual particle index for consistent size variation
+            let randomValue = hashFloat(particleIdx);
+            // Map random value from [0,1] to [-1,1] for symmetric variation
+            let symmetricRandom = (randomValue - 0.5) * 2.0;
+            // Apply variation symmetrically around 1.0
+            // When particleSizeVariation = 1.0: factor ranges from 0.5x to 1.5x
+            // When particleSizeVariation = 0.5: factor ranges from 0.75x to 1.25x
+            sizeVariationFactor = 1.0 + symmetricRandom * 0.5 * uniforms.galaxy.particleSizeVariation;
+            // Clamp to minimum to prevent zero/negative sizes
+            sizeVariationFactor = max(sizeVariationFactor, uniforms.galaxy.minSizeVariation);
+        }
+        
         // Dust particles: scale size based on total star count
         let sizeScale = dustSizeScale();
         world_size = uniforms.galaxy.dustParticleSize * sizeVariationFactor * sizeScale;
-        // Brightness compensation: when temporalAccumulation > 1, only 1/N particles render per frame,
-        // so we multiply by N to maintain brightness. When temporalAccumulation = 1, all particles 
-        // render every frame, so no multiplication needed.
-        if (uniforms.galaxy.temporalAccumulation > 1.0) {
-            output.color = particle.color * particle.mag * uniforms.galaxy.temporalAccumulation;
-        } else {
-            output.color = particle.color * particle.mag;
-        }
+        
+        // Compensate brightness for size variation to maintain constant total light output.
+        // Area scales with size^2, so brightness scales inversely with size^2.
+        let sizeCompensation = 1.0 / (sizeVariationFactor * sizeVariationFactor);
+        
+        output.color = particle.color * particle.mag * sizeCompensation;
     }
 
     // Calculate quad corner offset in world space using direct array indexing

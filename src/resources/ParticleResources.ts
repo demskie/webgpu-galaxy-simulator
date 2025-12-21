@@ -128,6 +128,7 @@ export class ParticleResources {
 				{ binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: "uniform" } },
 				{ binding: 1, visibility: GPUShaderStage.VERTEX, buffer: { type: "read-only-storage" } },
 				{ binding: 2, visibility: GPUShaderStage.FRAGMENT, buffer: { type: "storage" } },
+				{ binding: 3, visibility: GPUShaderStage.VERTEX, buffer: { type: "read-only-storage" } },
 			],
 		});
 		return this.particleBindGroupLayout;
@@ -145,6 +146,7 @@ export class ParticleResources {
 			entries: [
 				{ binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: "uniform" } },
 				{ binding: 1, visibility: GPUShaderStage.VERTEX, buffer: { type: "read-only-storage" } },
+				{ binding: 3, visibility: GPUShaderStage.VERTEX, buffer: { type: "read-only-storage" } },
 			],
 		});
 		return this.particleBindGroupLayoutNoOverdraw;
@@ -152,15 +154,27 @@ export class ParticleResources {
 
 	////////////////////////////////////////////////////////////
 
-	getParticleBindGroup = (width: number, height: number) =>
-		!!!this.particleBindGroup ||
-		this.lastParticleBindGroupDims.width !== width ||
-		this.lastParticleBindGroupDims.height !== height
-			? this.createParticleBindGroup(width, height)
-			: this.particleBindGroup;
+	private lastVisibleBuffer: GPUBuffer | null = null;
+	
+	getParticleBindGroup = (width: number, height: number) => {
+		const currentVisibleBuffer = this.resources().visibilityResources.getVisibleIndexBuffer(
+			this.resources().galaxy().totalStarCount
+		);
+		if (
+			!this.particleBindGroup ||
+			this.lastParticleBindGroupDims.width !== width ||
+			this.lastParticleBindGroupDims.height !== height ||
+			this.lastVisibleBuffer !== currentVisibleBuffer
+		) {
+			this.lastVisibleBuffer = currentVisibleBuffer;
+			return this.createParticleBindGroup(width, height);
+		}
+		return this.particleBindGroup;
+	};
 
 	private createParticleBindGroup(width: number, height: number): GPUBindGroup {
 		console.log("🔴 Creating particle bind group");
+		const galaxy = this.resources().galaxy();
 		this.particleBindGroup = this.device.createBindGroup({
 			label: "particleBindGroup",
 			layout: this.getParticleBindGroupLayout(),
@@ -170,6 +184,10 @@ export class ParticleResources {
 				{
 					binding: 2,
 					resource: { buffer: this.resources().countOverdrawResources.getOverdrawCountBuffer(width, height) },
+				},
+				{
+					binding: 3,
+					resource: { buffer: this.resources().visibilityResources.getVisibleIndexBuffer(galaxy.totalStarCount) },
 				},
 			],
 		});
@@ -181,16 +199,32 @@ export class ParticleResources {
 
 	////////////////////////////////////////////////////////////
 
-	getParticleBindGroupNoOverdraw = () => this.particleBindGroupNoOverdraw ?? this.createParticleBindGroupNoOverdraw();
+	private lastVisibleBufferNoOverdraw: GPUBuffer | null = null;
+	
+	getParticleBindGroupNoOverdraw = () => {
+		const currentVisibleBuffer = this.resources().visibilityResources.getVisibleIndexBuffer(
+			this.resources().galaxy().totalStarCount
+		);
+		if (!this.particleBindGroupNoOverdraw || this.lastVisibleBufferNoOverdraw !== currentVisibleBuffer) {
+			this.lastVisibleBufferNoOverdraw = currentVisibleBuffer;
+			return this.createParticleBindGroupNoOverdraw();
+		}
+		return this.particleBindGroupNoOverdraw;
+	};
 
 	private createParticleBindGroupNoOverdraw(): GPUBindGroup {
 		console.log("🔴 Creating particle bind group no overdraw");
+		const galaxy = this.resources().galaxy();
 		this.particleBindGroupNoOverdraw = this.device.createBindGroup({
 			label: "particleBindGroupNoOverdraw",
 			layout: this.getParticleBindGroupLayoutNoOverdraw(),
 			entries: [
 				{ binding: 0, resource: { buffer: this.getUniformBuffer() } },
 				{ binding: 1, resource: { buffer: this.getParticleStorageBuffer() } },
+				{
+					binding: 3,
+					resource: { buffer: this.resources().visibilityResources.getVisibleIndexBuffer(galaxy.totalStarCount) },
+				},
 			],
 		});
 		return this.particleBindGroupNoOverdraw;

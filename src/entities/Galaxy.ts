@@ -1,5 +1,4 @@
 import galaxyPresetsData from "../galaxy-presets.json";
-import { snapToPowerOfTwo } from "../utils/Powers";
 import { packGalaxyToArray } from "../utils/GalaxyUniformPacker";
 
 const LOCAL_STORAGE_KEY = "galaxy-presets";
@@ -11,6 +10,7 @@ export interface GalaxyCallbacks {
 	onOverdrawDebugChanged?: () => void;
 	onParticleSizeChanged?: () => void;
 	onAdvancedOptionsChanged?: () => void;
+	onDenoiseParametersChanged?: () => void;
 }
 
 export class Galaxy {
@@ -59,12 +59,15 @@ export class Galaxy {
 	shadowLift: number = 0;
 	minLiftThreshold: number = 0;
 	particleSizeVariation: number = 0;
+	minSizeVariation: number = 0.05;
 	toneMapToe: number = 0;
 	toneMapHighlights: number = 0;
 	toneMapMidtones: number = 0;
 	toneMapShoulder: number = 0;
-	temporalAccumulation: number = 0;
-	temporalFrame: number = 0;
+	// Temporal denoising parameters
+	denoiseSpatial: number = 0;
+	denoiseColor: number = 0;
+	denoiseTemporalAlpha: number = 0;
 	brightStarBrightness: number = 0;
 	maxFrameRate: number = 0;
 	maxOverdraw: number = 0;
@@ -79,7 +82,6 @@ export class Galaxy {
 
 	constructor(props: Partial<Galaxy> = {}, callbacks: GalaxyCallbacks = {}) {
 		Object.assign(this, DEFAULT_GALAXY_VALUES, props);
-		this.temporalAccumulation = snapToPowerOfTwo(this.temporalAccumulation);
 		this.callbacks = callbacks;
 	}
 
@@ -160,6 +162,11 @@ export class Galaxy {
 
 	setParticleSizeVariation(val: number) {
 		this.particleSizeVariation = val;
+		this.callbacks.onParticleSizeChanged?.();
+	}
+
+	setMinSizeVariation(val: number) {
+		this.minSizeVariation = val;
 		this.callbacks.onParticleSizeChanged?.();
 	}
 
@@ -347,6 +354,21 @@ export class Galaxy {
 		this.callbacks.onAdvancedOptionsChanged?.();
 	}
 
+	setDenoiseSpatial(val: number) {
+		this.denoiseSpatial = val;
+		this.callbacks.onDenoiseParametersChanged?.();
+	}
+
+	setDenoiseColor(val: number) {
+		this.denoiseColor = val;
+		this.callbacks.onDenoiseParametersChanged?.();
+	}
+
+	setDenoiseTemporalAlpha(val: number) {
+		this.denoiseTemporalAlpha = val;
+		this.callbacks.onDenoiseParametersChanged?.();
+	}
+
 	toGpuArray(): Float32Array {
 		// Ensure cached array exists (it might be overwritten by preset data)
 		if (!!!this.cachedGpuArray || this.cachedGpuArray.length !== 56) {
@@ -379,10 +401,10 @@ export class Galaxy {
 		// Restore callbacks and cached array
 		this.callbacks = savedCallbacks;
 		this.cachedGpuArray = savedCachedGpuArray;
-		this.temporalAccumulation = snapToPowerOfTwo(this.temporalAccumulation);
 		this.callbacks.onUniformDataChanged?.();
 		this.callbacks.onToneParametersChanged?.();
 		this.callbacks.onBloomParametersChanged?.();
+		this.callbacks.onDenoiseParametersChanged?.();
 	}
 
 	toPreset(): Partial<Galaxy> {
@@ -437,12 +459,14 @@ const DEFAULT_GALAXY_VALUES = {
 	shadowLift: 0,
 	minLiftThreshold: 0,
 	particleSizeVariation: 0.97,
+	minSizeVariation: 0.05,
 	toneMapToe: 0,
 	toneMapHighlights: 1,
 	toneMapMidtones: 1,
 	toneMapShoulder: 1,
-	temporalAccumulation: 2,
-	temporalFrame: 1,
+	denoiseSpatial: 1.0,
+	denoiseColor: 0.5,
+	denoiseTemporalAlpha: 0.1,
 	brightStarBrightness: 1,
 	maxFrameRate: 30,
 	maxOverdraw: 4096,
@@ -501,9 +525,6 @@ export function getGalaxyPreset(name: string): Partial<Galaxy> {
 	const presets = getAllPresets();
 	const galaxy = presets[name];
 	if (!!!galaxy) throw new Error(`Galaxy preset "${name}" not found`);
-	galaxy.temporalAccumulation = snapToPowerOfTwo(
-		galaxy.temporalAccumulation ?? DEFAULT_GALAXY_VALUES.temporalAccumulation
-	);
 	return galaxy;
 }
 

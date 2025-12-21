@@ -54,7 +54,7 @@ struct Galaxy {
     temporalFrame: f32,
     brightStarBrightness: f32,
     maxOverdraw: f32,
-    _padding1: f32,
+    minSizeVariation: f32,
     _padding2: f32,
     _padding3: f32,
 }
@@ -118,7 +118,9 @@ fn main(input: FragmentInput) -> FragmentOutput {
         exposure_multiplier = max(exposure_multiplier, 0.1);
     }
 
-    output.color = vec4(input.color.rgb * exposure_multiplier, input.color.a * alpha_fade);
+    // Scale alpha by exposure_multiplier so darker particles are also more transparent.
+    // This prevents dark particles from obscuring brighter ones behind them.
+    output.color = vec4(input.color.rgb * exposure_multiplier, input.color.a * alpha_fade * exposure_multiplier);
     return output;
 }
 

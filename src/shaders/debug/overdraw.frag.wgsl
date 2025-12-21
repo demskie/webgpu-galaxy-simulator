@@ -54,7 +54,7 @@ struct Galaxy {
     temporalFrame: f32,
     brightStarBrightness: f32,
     maxOverdraw: f32,
-    _padding1: f32,
+    minSizeVariation: f32,
     _padding2: f32,
     _padding3: f32,
 }

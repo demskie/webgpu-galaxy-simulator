@@ -33,6 +33,8 @@ export class HDRResources {
 			usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
 		});
 		this.lastHDRTextureDims = { width, height };
+		// Invalidate view when texture is recreated
+		this.hdrTextureView = null;
 		return this.hdrTexture;
 	}
 

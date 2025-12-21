@@ -1,8 +1,6 @@
 import { Galaxy } from "../entities/Galaxy";
 import { GalaxySimulator } from "../GalaxySimulator";
 import { ParticleRenderer } from "../renderers/ParticleRenderer";
-import { AccumulationManager } from "./AccumulationManager";
-import { AccumulationResources } from "../resources/AccumulationResources";
 import { PerformanceProfiler } from "../profilers/PerformanceProfiler";
 import { ParticleResources } from "../resources/ParticleResources";
 import { BloomResources } from "../resources/BloomResources";
@@ -11,6 +9,10 @@ import { HDRResources } from "../resources/HDRResources";
 import { MSAAResources } from "../resources/MSAAResources";
 import { CountOverdrawResources } from "../resources/CountOverdrawResources";
 import { DrawOverdrawResources } from "../resources/DrawOverdrawResources";
+import { DenoiseResources } from "../resources/DenoiseResources";
+import { TemporalDenoiseCompute } from "../compute/TemporalDenoiseCompute";
+import { VisibilityResources } from "../resources/VisibilityResources";
+import { VisibilityCullCompute } from "../compute/VisibilityCullCompute";
 
 // The ResourceManager class is responsible for managing all WebGPU resources
 // required for rendering and simulating galaxies. This includes creating and
@@ -26,8 +28,6 @@ export class ResourceManager {
 	galaxy: () => Galaxy;
 	particleRenderer: () => ParticleRenderer;
 	performanceProfiler: () => PerformanceProfiler;
-	accumulator: () => AccumulationManager;
-	accumulationResources: AccumulationResources;
 	particleResources: ParticleResources;
 	countOverdrawResources: CountOverdrawResources;
 	drawOverdrawResources: DrawOverdrawResources;
@@ -35,6 +35,10 @@ export class ResourceManager {
 	toneMapResources: ToneMapResources;
 	hdrResources: HDRResources;
 	msaaResources: MSAAResources;
+	denoiseResources: DenoiseResources;
+	temporalDenoiseCompute: TemporalDenoiseCompute;
+	visibilityResources: VisibilityResources;
+	visibilityCullCompute: VisibilityCullCompute;
 
 	// Constructor initializes the ResourceManager with required WebGPU objects
 	// and external resources. It sets up the canvas dimensions based on device
@@ -59,11 +63,6 @@ export class ResourceManager {
 				throw new Error("PerformanceProfiler must be initialized before ResourceManager");
 			return simulator.performanceProfiler;
 		};
-		this.accumulator = () => {
-			if (!!!simulator.accumulator) throw new Error("Accumulator must be initialized before ResourceManager");
-			return simulator.accumulator;
-		};
-		this.accumulationResources = new AccumulationResources(simulator);
 		this.particleResources = new ParticleResources(simulator);
 		this.countOverdrawResources = new CountOverdrawResources(simulator);
 		this.drawOverdrawResources = new DrawOverdrawResources(simulator);
@@ -71,6 +70,10 @@ export class ResourceManager {
 		this.toneMapResources = new ToneMapResources(simulator);
 		this.hdrResources = new HDRResources(simulator);
 		this.msaaResources = new MSAAResources(simulator);
+		this.denoiseResources = new DenoiseResources(simulator);
+		this.temporalDenoiseCompute = new TemporalDenoiseCompute(simulator);
+		this.visibilityResources = new VisibilityResources(simulator);
+		this.visibilityCullCompute = new VisibilityCullCompute(simulator);
 
 		// Calculate initial canvas buffer size accounting for device pixel ratio
 		// to ensure sharp rendering on high-DPI displays. The CSS size is the
@@ -85,7 +88,7 @@ export class ResourceManager {
 
 	// Public method to create or recreate post-processing resources. This includes
 	// MSAA textures, HDR textures, bloom textures, tone mapping resources, and
-	// temporal accumulation resources. It is called when the canvas size changes
+	// temporal denoising resources. It is called when the canvas size changes
 	// or when parameters affecting resource dimensions are updated.
 	setup() {
 		console.log("🔴 Creating post processing resources");
@@ -97,20 +100,26 @@ export class ResourceManager {
 		this.drawOverdrawResources.setup();
 		this.bloomResources.setup();
 		this.toneMapResources.setup();
-		this.accumulationResources.updateWeightsBuffer();
+		this.denoiseResources.setup();
+		this.temporalDenoiseCompute.setup();
+		this.visibilityResources.setup();
+		this.visibilityCullCompute.setup();
 	}
 
 	// Public method to clean up all GPU resources. This should be called when
 	// shutting down the application or when needing to completely reset resources.
 	destroy() {
 		console.log("Destroying ResourceManager GPU resources");
-		this.accumulationResources.destroy();
+		this.denoiseResources.destroy();
+		this.temporalDenoiseCompute.destroy();
 		this.bloomResources.destroy();
 		this.toneMapResources.destroy();
 		this.hdrResources.destroy();
 		this.msaaResources.destroy();
 		this.countOverdrawResources.destroy();
 		this.drawOverdrawResources.destroy();
+		this.visibilityResources.destroy();
+		this.visibilityCullCompute.destroy();
 	}
 
 	// Toggle handler destroy or recreate overdraw resources based on maxOverdraw
@@ -128,6 +137,30 @@ export class ResourceManager {
 		this.particleRenderer().allocateEmptyBuffer(this.galaxy().totalStarCount);
 		// Recreate particle bind group to reflect layout (with/without overdraw buffer)
 		this.particleResources.setup();
-		this.accumulationResources.updateWeightsBuffer();
+	}
+
+	// Convenience methods for TemporalDenoiseCompute to access textures
+	getCurrentFrameView(): GPUTextureView {
+		return this.denoiseResources.getCurrentFrameView(this.canvas.width, this.canvas.height);
+	}
+
+	getDenoisedView(): GPUTextureView {
+		return this.denoiseResources.getDenoisedView(this.canvas.width, this.canvas.height);
+	}
+
+	getDenoisedTexture(): GPUTexture {
+		return this.denoiseResources.getDenoisedTexture(this.canvas.width, this.canvas.height);
+	}
+
+	getHistoryView(): GPUTextureView {
+		return this.denoiseResources.getHistoryView(this.canvas.width, this.canvas.height);
+	}
+
+	getHistoryTexture(): GPUTexture {
+		return this.denoiseResources.getHistoryTexture(this.canvas.width, this.canvas.height);
+	}
+
+	getSampler(): GPUSampler {
+		return this.denoiseResources.getSampler();
 	}
 }

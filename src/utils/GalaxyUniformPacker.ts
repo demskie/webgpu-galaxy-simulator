@@ -55,11 +55,13 @@ export function packGalaxyToArray(galaxy: Galaxy, out?: Float32Array): Float32Ar
 	arr[46] = galaxy.toneMapHighlights;
 	arr[47] = galaxy.toneMapMidtones;
 	arr[48] = galaxy.toneMapShoulder;
-	arr[49] = galaxy.temporalAccumulation;
-	arr[50] = galaxy.temporalFrame;
+	// temporalAccumulation and temporalFrame are no longer used (temporal denoising replaced accumulation)
+	// Keep as 1 and 0 for shader compatibility
+	arr[49] = 1.0; // temporalAccumulation = 1 (no multi-frame accumulation)
+	arr[50] = 0.0; // temporalFrame = 0
 	arr[51] = galaxy.brightStarBrightness;
 	arr[52] = galaxy.maxOverdraw;
-	arr[53] = 0.0; // padding1
+	arr[53] = galaxy.minSizeVariation;
 	arr[54] = 0.0; // padding2
 	arr[55] = 0.0; // padding3
 
@@ -70,11 +72,10 @@ export function writeGalaxyToDataView(
 	galaxy: Galaxy,
 	dataView: DataView,
 	byteOffset: number,
-	opts?: { temporalAccumulation?: number; maxOverdrawOverride?: number }
+	opts?: { maxOverdrawOverride?: number }
 ): void {
 	// Pack to a temporary array (caller can pass their own out array if needed)
 	const tmp = packGalaxyToArray(galaxy);
-	if (opts && opts.temporalAccumulation !== undefined) tmp[49] = opts.temporalAccumulation;
 	if (opts && opts.maxOverdrawOverride !== undefined) tmp[52] = opts.maxOverdrawOverride;
 	for (let i = 0; i < GALAXY_UNIFORM_FLOATS; i++) {
 		dataView.setFloat32(byteOffset + i * 4, tmp[i], true);

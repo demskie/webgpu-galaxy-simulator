@@ -3,7 +3,6 @@ import { getGalaxyPreset, getDefaultGalaxyPreset, Galaxy, GalaxyCallbacks } from
 import { ResourceManager } from "./managers/ResourceManager";
 import { RenderingManager } from "./managers/RenderingManager";
 import { FPSManager } from "./managers/FPSManager";
-import { AccumulationManager } from "./managers/AccumulationManager";
 import { UIManager } from "./managers/UIManager";
 import { CameraManager } from "./managers/CameraManager";
 import { Particles } from "./compute/Particles";
@@ -26,12 +25,14 @@ export class GalaxySimulator {
 	readonly fps: FPSManager;
 	readonly performanceProfiler: PerformanceProfiler;
 	readonly memoryProfiler: MemoryProfiler;
-	readonly accumulator: AccumulationManager;
 	readonly ui: UIManager;
 	readonly particles: Particles;
 
 	// Track particle count changes for efficient updates
 	private lastParticleCount = 0;
+
+	// Visible particle count from frustum culling (updated asynchronously)
+	private _visibleParticleCount = 0;
 
 	constructor(
 		canvas: HTMLCanvasElement,
@@ -60,11 +61,10 @@ export class GalaxySimulator {
 		this.camera = new CameraManager(this);
 		this.camera.setCameraOrientation(vec3.fromValues(0, 1, 0));
 
-		// Initialize particle renderer and accumulation manager before we create particle resources
+		// Initialize particle renderer before we create particle resources
 		this.particleRenderer = new ParticleRenderer(this);
-		this.accumulator = new AccumulationManager(this);
 
-		// Initialize particle resources
+		// Initialize resources (includes temporal denoising setup)
 		this.resources = new ResourceManager(this);
 		this.resources.setup();
 
@@ -159,10 +159,8 @@ export class GalaxySimulator {
 		// Update particle count tracking for the new preset
 		this.lastParticleCount = this.galaxy.totalStarCount;
 
-		// Immediately clear accumulation buffers to prevent showing remnants of previous preset
-		this.galaxy.temporalFrame = 0;
-		this.resources.accumulationResources.requestForceClear();
-		this.resources.accumulationResources.updateWeightsBuffer(); // Force clear occurs within update
+		// Reset temporal denoising to avoid ghosting from previous preset
+		this.resources.temporalDenoiseCompute.resetTemporalAccumulation();
 
 		// Update particles to match the new preset
 		this.updateParticles();
@@ -191,6 +189,7 @@ export class GalaxySimulator {
 			onOverdrawDebugChanged: () => this.handleOverdrawDebugChange(),
 			onParticleSizeChanged: () => this.handleParticleSizeChange(),
 			onAdvancedOptionsChanged: () => this.handleAdvancedOptionsChange(),
+			onDenoiseParametersChanged: () => this.updateDenoiseParameters(),
 		};
 	}
 
@@ -203,8 +202,12 @@ export class GalaxySimulator {
 	}
 
 	private handleOverdrawDebugChange() {
-		this.resetAccumulationBuffers(false);
+		this.resources.temporalDenoiseCompute.resetTemporalAccumulation();
 		this.resources.setup();
+	}
+
+	private updateDenoiseParameters() {
+		this.resources.temporalDenoiseCompute.updateParams();
 	}
 
 	private handleParticleSizeChange() {
@@ -232,17 +235,8 @@ export class GalaxySimulator {
 		this.updateUniformData();
 	}
 
-	private resetAccumulationBuffers(immediate: boolean = true) {
-		this.accumulator.requestFullRenderNextFrame();
-		this.resources.accumulationResources.requestForceClear();
-		if (immediate) {
-			this.resources.accumulationResources.updateWeightsBuffer();
-		}
-	}
-
 	private update(deltaTime: number) {
 		this.galaxy.advanceTime(deltaTime);
-		this.accumulator.update();
 		this.updateUniformData();
 	}
 
@@ -266,16 +260,34 @@ export class GalaxySimulator {
 		this.lastParticleCount = this.galaxy.totalStarCount;
 	}
 
+	/**
+	 * Get the number of visible particles from the last frame's frustum culling.
+	 * This value is updated asynchronously and may be 1-2 frames behind.
+	 */
+	get visibleParticleCount(): number {
+		return this._visibleParticleCount;
+	}
+
+	/**
+	 * Update the visible particle count from GPU readback.
+	 * Called periodically to get the latest visibility culling results.
+	 */
+	async updateVisibleParticleCount(): Promise<void> {
+		try {
+			this._visibleParticleCount = await this.resources.visibilityResources.readVisibleCount();
+		} catch {
+			// Ignore errors - buffer might be busy
+		}
+	}
+
 	immediateRender() {
 		// Perform an immediate render cycle bypassing frame rate limiting
 		const currentTime = performance.now();
 		const deltaTime = 16.67; // Use a default delta time for immediate renders
 		this.performanceProfiler.startCpuFrameTiming();
 		this.fps.updateFps(currentTime);
-		const overrideActive = this.accumulator.beginOneFrameOverrideIfRequested();
 		this.update(deltaTime);
 		this.render();
-		if (overrideActive) this.accumulator.endOneFrameOverride();
 		this.performanceProfiler.endCpuFrameTiming();
 	}
 
@@ -285,10 +297,8 @@ export class GalaxySimulator {
 		const { shouldRender, deltaTime } = this.fps.shouldRenderFrame(currentTime, this.galaxy.maxFrameRate);
 		if (shouldRender) {
 			this.fps.updateFps(currentTime);
-			const overrideActive = this.accumulator.beginOneFrameOverrideIfRequested();
 			this.update(deltaTime);
 			this.render();
-			if (overrideActive) this.accumulator.endOneFrameOverride();
 			this.performanceProfiler.endCpuFrameTiming();
 		}
 		window.requestAnimationFrame(() => this.mainLoop());
@@ -300,7 +310,9 @@ export class GalaxySimulator {
 		this.canvas.height = height;
 		this.resources.setup();
 		this.camera.adjustCamera();
-		this.accumulator.requestFullRenderNextFrame();
+		// Reset temporal denoising on resize to avoid ghosting
+		this.resources.temporalDenoiseCompute.invalidateBindGroups();
+		this.resources.temporalDenoiseCompute.resetTemporalAccumulation();
 		this.updateUniformData();
 	}
 }

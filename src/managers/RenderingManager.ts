@@ -6,7 +6,7 @@ import { Particles } from "../compute/Particles";
 
 // The Renderer class handles all GPU rendering operations for the galaxy simulation.
 // It encapsulates the render pipeline execution, including star rendering, post-processing
-// effects (bloom, tone mapping), temporal accumulation, and GPU timing. This separation
+// effects (bloom, tone mapping), temporal denoising, and GPU timing. This separation
 // allows the GalaxySimulator to focus on simulation logic while the Renderer manages
 // the complex GPU command encoding and submission process.
 export class RenderingManager {
@@ -63,9 +63,6 @@ export class RenderingManager {
 			return false;
 		}
 
-		// Update accumulation weights for temporal averaging before encoding commands.
-		this.resources().accumulationResources.updateWeightsBuffer();
-
 		// Create command encoder for recording GPU commands.
 		const commandEncoder = this.device.createCommandEncoder();
 		const canvasTextureView = this.context.getCurrentTexture().createView();
@@ -75,14 +72,31 @@ export class RenderingManager {
 			this.particles().update(commandEncoder);
 		}
 
+		// Step 0: Visibility culling - determine which particles are visible
+		this.resources().visibilityCullCompute.dispatch(commandEncoder);
+		
+		// Step 0.5: Prepare indirect draw buffer from visibility results
+		this.resources().visibilityResources.dispatchPrepareIndirect(commandEncoder, starCount);
+
 		// Clear overdraw count buffer before rendering to reset per-pixel overdraw counts.
 		this.particleRenderer().clearOverdrawBuffer(commandEncoder);
 
-		// Render stars to the current accumulation texture layer.
+		// Step 1: Render stars to the current frame texture (using indirect draw)
 		this.renderStars(commandEncoder, starCount);
 
-		// Average all accumulation textures into HDR texture for temporal smoothing.
-		this.averageAccumulationTextures(commandEncoder);
+		// Step 2: Temporal denoise - combines current frame with denoised history
+		this.resources().temporalDenoiseCompute.updateParams();
+		this.resources().temporalDenoiseCompute.dispatch(commandEncoder);
+
+		// Step 3: Copy denoised output to history for next frame's temporal accumulation
+		commandEncoder.copyTextureToTexture(
+			{ texture: this.resources().getDenoisedTexture() },
+			{ texture: this.resources().getHistoryTexture() },
+			[this.canvas.width, this.canvas.height]
+		);
+
+		// Step 4: Copy denoised output to HDR texture for post-processing
+		this.copyDenoisedToHDR(commandEncoder);
 
 		// Apply post-processing effects: bloom extraction, blur, and tone mapping.
 		this.applyPostProcessing(commandEncoder, canvasTextureView);
@@ -98,22 +112,22 @@ export class RenderingManager {
 		return true;
 	}
 
-	// Render stars to the current accumulation texture layer. This is the main
-	// rendering pass that draws all star particles using instanced rendering.
+	// Render stars to the current frame texture. This is the main rendering pass
+	// that draws all star particles using instanced rendering.
 	// Supports both normal rendering and overdraw debug visualization.
 	private renderStars(commandEncoder: GPUCommandEncoder, starCount: number) {
 		const [width, height] = [this.canvas.width, this.canvas.height];
-		const currentAccumView = this.resources().accumulationResources.getCurrentAccumLayerView(width, height);
+		const currentFrameView = this.resources().getCurrentFrameView();
 		const msaaView = this.resources().msaaResources.getMSAATextureView(width, height);
 
-		// Configure render pass with MSAA texture and accumulation layer as resolve target.
+		// Configure render pass with MSAA texture and current frame as resolve target.
 		const renderPassDescriptor: GPURenderPassDescriptor = {
 			colorAttachments: [
 				{
 					view: msaaView,
-					resolveTarget: currentAccumView,
+					resolveTarget: currentFrameView,
 					clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
-					loadOp: "clear", // Always clear the current slice
+					loadOp: "clear",
 					storeOp: "store",
 				},
 			],
@@ -128,32 +142,17 @@ export class RenderingManager {
 		this.particleRenderer().render(passEncoder, starCount);
 
 		passEncoder.end();
-
-		// Advance ring buffer index for next frame.
-		this.resources().accumulationResources.advanceAccumWriteIndex();
 	}
 
-	// Average all active accumulation texture layers into the HDR texture.
-	// This implements temporal accumulation by blending multiple frames together
-	// with appropriate weights to reduce noise and create motion blur effects.
-	private averageAccumulationTextures(commandEncoder: GPUCommandEncoder) {
-		const averagePass = commandEncoder.beginRenderPass({
-			colorAttachments: [
-				{
-					view: this.resources().hdrResources.getHDRTextureView(this.canvas.width, this.canvas.height),
-					clearValue: { r: 0, g: 0, b: 0, a: 1 },
-					loadOp: "clear",
-					storeOp: "store",
-				},
-			],
-		});
-		averagePass.setPipeline(this.resources().accumulationResources.getAccumAveragePipeline());
-		averagePass.setBindGroup(
-			0,
-			this.resources().accumulationResources.getAccumAverageBindGroup(this.canvas.width, this.canvas.height)
+	// Copy denoised output to HDR texture for post-processing.
+	// This is a simple texture copy since both are the same format.
+	private copyDenoisedToHDR(commandEncoder: GPUCommandEncoder) {
+		const [width, height] = [this.canvas.width, this.canvas.height];
+		commandEncoder.copyTextureToTexture(
+			{ texture: this.resources().getDenoisedTexture() },
+			{ texture: this.resources().hdrResources.getHDRTexture(width, height) },
+			[width, height]
 		);
-		averagePass.draw(3, 1, 0, 0); // Fullscreen triangle
-		averagePass.end();
 	}
 
 	// Apply post-processing effects including bloom and tone mapping.

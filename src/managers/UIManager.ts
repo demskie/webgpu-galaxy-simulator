@@ -14,6 +14,13 @@ export class UIManager {
 	private originalPresetName: string | null = null;
 	private originalGalaxy: any = null;
 
+	// Mouse drag state for camera panning
+	private mouseDown = false;
+	private dragStartX = 0;
+	private dragStartY = 0;
+	private dragStartPanX = 0;
+	private dragStartPanY = 0;
+
 	private readonly shapeParameters = new Set([
 		"galaxyRadius",
 		"spiralPeakPosition",
@@ -44,6 +51,7 @@ export class UIManager {
 		"brightStarSize",
 		"starEdgeSoftness",
 		"particleSizeVariation",
+		"minSizeVariation",
 		"baseTemperature",
 		"rotationSpeed",
 		"brightStarBrightness",
@@ -60,6 +68,7 @@ export class UIManager {
 			this.updateHTML(this.simulator);
 
 			this.setupResponsiveCanvas(this.simulator);
+			this.setupMouseControls();
 			this.setupPixelColorDisplay();
 			this.setupAdvancedOptionsToggle();
 
@@ -203,6 +212,69 @@ export class UIManager {
 		}
 	}
 
+	private setupMouseControls() {
+		const canvas = document.getElementById("cvGalaxy") as HTMLCanvasElement;
+		if (!canvas) return;
+
+		const camera = this.simulator.camera;
+
+		canvas.addEventListener("mousedown", (e) => {
+			this.mouseDown = true;
+			const rect = canvas.getBoundingClientRect();
+			this.dragStartX = e.clientX - rect.left;
+			this.dragStartY = e.clientY - rect.top;
+			// Store initial camera pan when drag starts
+			this.dragStartPanX = camera.panX;
+			this.dragStartPanY = camera.panY;
+		});
+
+		canvas.addEventListener("mousemove", (e) => {
+			if (this.mouseDown) {
+				const rect = canvas.getBoundingClientRect();
+				const currentX = e.clientX - rect.left;
+				const currentY = e.clientY - rect.top;
+
+				// Calculate normalized screen-space delta (1.0 = 1 screen width)
+				const deltaX = (currentX - this.dragStartX) / rect.width;
+				const deltaY = (currentY - this.dragStartY) / rect.height;
+
+				// Apply delta to initial pan values, scaled by dolly for consistent feel
+				const newPanX = this.dragStartPanX + deltaX * camera.dolly;
+				const newPanY = this.dragStartPanY - deltaY * camera.dolly; // Invert Y for natural drag
+
+				camera.setPanX(newPanX);
+				camera.setPanY(newPanY);
+			}
+		});
+
+		canvas.addEventListener("mouseup", () => {
+			this.mouseDown = false;
+		});
+
+		canvas.addEventListener("mouseleave", () => {
+			this.mouseDown = false;
+		});
+
+		// Wheel to dolly in/out
+		canvas.addEventListener(
+			"wheel",
+			(e) => {
+				e.preventDefault();
+				const dollySpeed = 0.001;
+				const currentDolly = camera.dolly;
+				// deltaY > 0 = scroll down = dolly out (move camera further back)
+				const newDolly = currentDolly * (1 + e.deltaY * dollySpeed);
+				camera.setDolly(newDolly);
+			},
+			{ passive: false }
+		);
+
+		// Double-click to reset camera
+		canvas.addEventListener("dblclick", () => {
+			camera.resetCamera();
+		});
+	}
+
 	private setupPixelColorDisplay() {
 		const canvas = document.getElementById("cvGalaxy") as HTMLCanvasElement;
 		const colorDisplay = document.getElementById("pixelColorDisplay");
@@ -285,10 +357,15 @@ export class UIManager {
 				fpsText.textContent = `FPS: ${fps}`;
 			}
 
+			// Update visible particle count asynchronously
+			if (!!this.simulator) {
+				this.simulator.updateVisibleParticleCount();
+			}
+
 			// Update temporal accumulation slider state periodically
 			// This handles dynamic state changes in the simulator
 			if (!!this.simulator) {
-				this.updateTemporalAccumulationSliderUI();
+				this.updateDenoiseSliderUI();
 			}
 
 			// Keep Max Overdraw UI consistent (label + overdraw checkbox state)
@@ -325,6 +402,7 @@ export class UIManager {
 				const gpuElement = timingDisplay.querySelector(".gpu-time");
 				const starsElement = timingDisplay.querySelector(".stars-time");
 				const postElement = timingDisplay.querySelector(".post-time");
+				const visibleElement = timingDisplay.querySelector(".visible-count");
 
 				// Display VRAM usage in MB
 				if (vramElement) {
@@ -345,6 +423,17 @@ export class UIManager {
 					if (gpuElement) gpuElement.textContent = `GPU: N/A`;
 					if (starsElement) starsElement.textContent = `Stars: N/A`;
 					if (postElement) postElement.textContent = `Post: N/A`;
+				}
+
+				// Display visible particle count with culling percentage
+				if (visibleElement) {
+					const visible = this.simulator.visibleParticleCount;
+					const total = this.simulator.galaxy.totalStarCount;
+					const percentage = total > 0 ? ((visible / total) * 100).toFixed(1) : "0.0";
+					visibleElement.textContent = `Visible: ${visible.toLocaleString()} (${percentage}%)`;
+					(
+						visibleElement as HTMLElement
+					).title = `${visible.toLocaleString()} of ${total.toLocaleString()} particles rendered`;
 				}
 			}
 		};
@@ -442,6 +531,7 @@ export class UIManager {
 			"coreBrightStarSuppressionExtent"
 		);
 		this.initializeParticleSizeVariationSlider("slParticleSizeVariation", "labelParticleSizeVariation");
+		this.initializeMinSizeVariationSlider("slMinSizeVariation", "labelMinSizeVariation");
 		this.initializeHDRControls();
 		this.initializeExposureSlider("slExposure", "labelExposure");
 		this.initializeSaturationSlider("slSaturation", "labelSaturation");
@@ -454,7 +544,9 @@ export class UIManager {
 		this.initializeToneMapMidtonesSlider("slToneMapMidtones", "labelToneMapMidtones");
 		this.initializeToneMapShoulderSlider("slToneMapShoulder", "labelToneMapShoulder");
 		this.initializeRadialExposureFalloffSlider("slRadialExposureFalloff", "labelRadialExposureFalloff");
-		this.initializeTemporalAccumulationSlider("slTemporalAccumulation", "labelTemporalAccumulation");
+		this.initializeDenoiseSpatialSlider("slDenoiseSpatial", "labelDenoiseSpatial");
+		this.initializeDenoiseColorSlider("slDenoiseColor", "labelDenoiseColor");
+		this.initializeDenoiseTemporalAlphaSlider("slDenoiseTemporalAlpha", "labelDenoiseTemporalAlpha");
 		this.initializeMaxFrameRateSlider("slMaxFrameRate", "labelMaxFrameRate");
 		this.initializeOverdrawControls(
 			"cbOverdrawDebug",
@@ -673,20 +765,27 @@ export class UIManager {
 		}
 	}
 
-	private updateTemporalAccumulationSliderUI() {
+	private updateDenoiseSliderUI() {
 		if (!!!this.simulator) return;
 
-		const slider = document.getElementById("slTemporalAccumulation") as HTMLInputElement;
-		const label = document.getElementById("labelTemporalAccumulation") as HTMLElement;
+		const spatialSlider = document.getElementById("slDenoiseSpatial") as HTMLInputElement;
+		const spatialLabel = document.getElementById("labelDenoiseSpatial") as HTMLElement;
+		const colorSlider = document.getElementById("slDenoiseColor") as HTMLInputElement;
+		const colorLabel = document.getElementById("labelDenoiseColor") as HTMLElement;
+		const alphaSlider = document.getElementById("slDenoiseTemporalAlpha") as HTMLInputElement;
+		const alphaLabel = document.getElementById("labelDenoiseTemporalAlpha") as HTMLElement;
 
-		if (slider && label) {
-			// Show normal value and enable slider
-			slider.disabled = false;
-			const currentAccum = this.simulator.galaxy.temporalAccumulation;
-			const sliderIndex = Math.log2(currentAccum);
-			slider.value = sliderIndex.toString();
-			label.innerHTML = currentAccum.toString();
-			slider.style.opacity = "1";
+		if (spatialSlider && spatialLabel) {
+			spatialSlider.value = this.simulator.galaxy.denoiseSpatial.toString();
+			spatialLabel.innerHTML = this.simulator.galaxy.denoiseSpatial.toFixed(1);
+		}
+		if (colorSlider && colorLabel) {
+			colorSlider.value = this.simulator.galaxy.denoiseColor.toString();
+			colorLabel.innerHTML = this.simulator.galaxy.denoiseColor.toFixed(2);
+		}
+		if (alphaSlider && alphaLabel) {
+			alphaSlider.value = this.simulator.galaxy.denoiseTemporalAlpha.toString();
+			alphaLabel.innerHTML = this.simulator.galaxy.denoiseTemporalAlpha.toFixed(2);
 		}
 	}
 
@@ -696,14 +795,6 @@ export class UIManager {
 
 		const galaxy = this.simulator.galaxy;
 		if (!(key in galaxy)) throw Error(`UIManager.updateKey(): key ${key} is not a property of the galaxy object`);
-
-		// Handle temporal accumulation parameter specifically
-		if (key === "temporalAccumulation") {
-			// Force accumulation resources to be recreated
-			(galaxy as any)[key] = value;
-			galaxy.temporalFrame = 0;
-			return;
-		}
 
 		// Use the appropriate setter method based on the key
 		const setterName = `set${key.charAt(0).toUpperCase()}${key.slice(1)}`;
@@ -881,6 +972,20 @@ export class UIManager {
 		};
 	}
 
+	initializeMinSizeVariationSlider(id: string, labelId: string) {
+		if (!!!this.simulator) return;
+
+		const slider = document.getElementById(id) as HTMLInputElement;
+		const label = document.getElementById(labelId) as HTMLElement;
+		slider.value = this.simulator.galaxy.minSizeVariation.toString();
+		label.innerHTML = slider.value;
+		slider.oninput = () => {
+			label.innerHTML = slider.value;
+			this.simulator!.galaxy.setMinSizeVariation(parseFloat(slider.value));
+			this.checkForModifications();
+		};
+	}
+
 	initializeToneMapToeSlider(id: string, labelId: string) {
 		if (!!!this.simulator) return;
 
@@ -965,20 +1070,50 @@ export class UIManager {
 		};
 	}
 
-	initializeTemporalAccumulationSlider(id: string, labelId: string) {
+	initializeDenoiseSpatialSlider(id: string, labelId: string) {
 		if (!!!this.simulator) return;
 
 		const slider = document.getElementById(id) as HTMLInputElement;
 		const label = document.getElementById(labelId) as HTMLElement;
-
-		// Update initial slider state
-		this.updateTemporalAccumulationSliderUI();
+		slider.value = this.simulator.galaxy.denoiseSpatial.toString();
+		label.innerHTML = this.simulator.galaxy.denoiseSpatial.toFixed(1);
 
 		slider.oninput = () => {
-			// Convert slider value (0-4) to power of 2 (1, 2, 4, 8, 16)
-			const accumValue = Math.pow(2, parseInt(slider.value));
-			label.innerHTML = accumValue.toString();
-			this.updateKey("temporalAccumulation", accumValue);
+			const val = parseFloat(slider.value);
+			label.innerHTML = val.toFixed(1);
+			this.simulator!.galaxy.setDenoiseSpatial(val);
+			this.checkForModifications();
+		};
+	}
+
+	initializeDenoiseColorSlider(id: string, labelId: string) {
+		if (!!!this.simulator) return;
+
+		const slider = document.getElementById(id) as HTMLInputElement;
+		const label = document.getElementById(labelId) as HTMLElement;
+		slider.value = this.simulator.galaxy.denoiseColor.toString();
+		label.innerHTML = this.simulator.galaxy.denoiseColor.toFixed(2);
+
+		slider.oninput = () => {
+			const val = parseFloat(slider.value);
+			label.innerHTML = val.toFixed(2);
+			this.simulator!.galaxy.setDenoiseColor(val);
+			this.checkForModifications();
+		};
+	}
+
+	initializeDenoiseTemporalAlphaSlider(id: string, labelId: string) {
+		if (!!!this.simulator) return;
+
+		const slider = document.getElementById(id) as HTMLInputElement;
+		const label = document.getElementById(labelId) as HTMLElement;
+		slider.value = this.simulator.galaxy.denoiseTemporalAlpha.toString();
+		label.innerHTML = this.simulator.galaxy.denoiseTemporalAlpha.toFixed(2);
+
+		slider.oninput = () => {
+			const val = parseFloat(slider.value);
+			label.innerHTML = val.toFixed(2);
+			this.simulator!.galaxy.setDenoiseTemporalAlpha(val);
 			this.checkForModifications();
 		};
 	}
@@ -994,9 +1129,8 @@ export class UIManager {
 			label.innerHTML = slider.value === "120" ? "unlocked" : slider.value + " FPS";
 			this.simulator!.galaxy.setMaxFrameRate(parseFloat(slider.value));
 
-			// Update temporal accumulation slider state when frame rate changes
-			// This handles the case where low FPS forces temporal accumulation to 1
-			this.updateTemporalAccumulationSliderUI();
+			// Update denoise slider state when frame rate changes
+			this.updateDenoiseSliderUI();
 
 			this.checkForModifications();
 		};
@@ -1057,18 +1191,27 @@ export class UIManager {
 			return;
 		}
 
+		// Store the user's preferred HDR brightness for restoring when switching back to extended mode
+		let savedHdrBrightness = this.simulator.galaxy.hdrBrightness;
+
 		// Update brightness slider state based on HDR mode
 		const updateBrightnessSlider = (isExtendedMode: boolean) => {
 			if (isExtendedMode) {
-				// Enable slider in extended mode - don't change the value, just enable control
+				// Restore saved brightness and enable slider in extended mode
 				brightnessSlider.disabled = false;
 				brightnessSlider.style.opacity = "1";
+				brightnessSlider.value = savedHdrBrightness.toString();
+				brightnessLabel.innerHTML = savedHdrBrightness.toFixed(1);
+				this.simulator!.galaxy.setHdrBrightness(savedHdrBrightness);
 			} else {
+				// Save current brightness before locking to 1.0
+				savedHdrBrightness = this.simulator!.galaxy.hdrBrightness;
 				// Lock to 1.0 and disable in standard mode
 				brightnessSlider.disabled = true;
 				brightnessSlider.style.opacity = "0.5";
 				brightnessSlider.value = "1.0";
 				brightnessLabel.innerHTML = "1.0";
+				// Use setter to trigger onToneParametersChanged callback and update GPU uniform
 				this.simulator!.galaxy.setHdrBrightness(1.0);
 			}
 		};
@@ -1120,6 +1263,7 @@ export class UIManager {
 		brightnessSlider.oninput = () => {
 			const val = parseFloat(brightnessSlider.value);
 			brightnessLabel.innerHTML = val.toFixed(1);
+			savedHdrBrightness = val; // Keep saved value in sync with user adjustments
 			this.simulator!.galaxy.setHdrBrightness(val);
 		};
 
